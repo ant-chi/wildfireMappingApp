@@ -1,0 +1,5 @@
+.ipynb_checkpoints
+__pycache__
+.DS_Store
+
+data/California_Fire_Perimeters_(all).geojson

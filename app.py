@@ -15,14 +15,14 @@ import folium
 from funcs import *
 
 
-@st.cache(allow_output_mutation=True, suppress_st_warning=True)
-def loadData():
-    fires = gpd.read_file("data/norCalFires.geojson")
-    fires["Start"] = pd.DatetimeIndex(fires["Start"])
-    fires["End"] = pd.DatetimeIndex(fires["End"])
-
-    # fires["geometry"] = fires["geometry"].apply(lambda x: boundsBuffer(x.bounds))
-    return fires
+# @st.cache(allow_output_mutation=True, suppress_st_warning=True)
+# def loadData():
+#     fires = gpd.read_file("data/norCalFires.geojson")
+#     fires["Start"] = pd.DatetimeIndex(fires["Start"])
+#     fires["End"] = pd.DatetimeIndex(fires["End"])
+#
+#     fires["geometry"] = fires["geometry"].apply(lambda x: boundsBuffer(x.bounds))
+#     return fires
 
 # @st.cache(allow_output_mutation=True, suppress_st_warning=True)
 # def loadAltBaseLayer():
@@ -47,18 +47,21 @@ st.set_page_config(layout="wide", page_title="INSERT TITLE", page_icon=":earth_a
 df = loadData()
 # altBaseLayer = loadAltBaseLayer()
 
+# non rescaled l8
 l8_viz = {"bands": ["SR_B7", "SR_B5", "SR_B3"],
           "gamma": [1.1, 1.1, 1],
           "min": 1000, "max": 25000}
 
 burn_viz = {"bands": ["burnSeverity"],
             "palette": ["706c1e", "4e9d5c", "fff70b", "ff641b", "a41fd6"],
-            "min": 0, "max": 4}
+            "min": 1, "max": 5}
 
-nlcd_viz = {"bands": ["landcover"],
+nlcd_viz = {"bands": ["landCover"],
             "palette": ["A2D6F2", "FF7F68", "258914", "FFF100", "7CD860", "B99B56"],
-            "min": 0, "max": 5}
+            "min": 1, "max": 6}
 
+
+# if not os.path.exist
 
 with st.container():
     st.write("## Filter Fires")
@@ -140,24 +143,16 @@ if mapFireSubmit:
               ).mosaic()
 
     img1, img2 = startCol.clip(fireGeometry), endCol.clip(fireGeometry)
+
     combined = prepImage(img1, img2, fireGeometry, endDate)
     loadTif(5, [30, 50, 75, 100, 130], fireID, combined, fireGeometry)
 
     with st.container():
-        # m1 = geemap.Map(center=fireGeometry.centroid().getInfo()["coordinates"][::-1],
-        #                zoom_start=10)
-        m2 = fmap.Map(#center=fireGeometry.centroid().getInfo()["coordinates"][::-1],
-                      #zoom_start=10,
-                      add_google_map=False)
+        m2 = fmap.Map(add_google_map=False)
 
-
-        # m2.add_legend(labels=None, colors=None,
-        # legend_dict=dict(zip(["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
-        # burn_viz["palette"]+["FF7F68"]+nlcd_viz["palette"])))
-
-        add_legend(m2, labels=None, colors=None,
-        legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
-        ["None"]+burn_viz["palette"]+["None"]+nlcd_viz["palette"])))
+        add_legend(map=m2,
+                   legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
+                                        ["None"]+burn_viz["palette"]+["None"]+nlcd_viz["palette"])))
 
         # m2.add_legend(title="Burn Severity",
         #              labels=["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["<h4>Land Cover</h4>"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
@@ -196,9 +191,9 @@ if mapFireSubmit:
         m2.add_local_tile(source="tifs/{}.tif".format(fireID),
                           band=8,
                           palette="Reds",
-                          vmin=0,
-                          vmax=4,
-                          # nodata=0,
+                          vmin=1,   # comment out to show entire raster with bbox
+                          vmax=5,
+                          nodata=0,
                           layer_name="Local Tif")
 
 
@@ -207,9 +202,4 @@ if mapFireSubmit:
 
         emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.5,1])
         with col_7:
-            # m1.to_streamlit(height=700, width=600, scrolling=True)
             m2.to_streamlit(height=700, width=600, scrolling=True)
-
-        # io = rio.open("tifs/{}.tif".format(fireID))
-
-        # show(io, 8).savefig("fire.png")

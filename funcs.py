@@ -1,6 +1,8 @@
 import streamlit as st
 import ee
 import geemap
+import geopandas as gpd
+import pandas as pd
 import numpy as np
 import time
 from datetime import datetime, timedelta
@@ -39,6 +41,16 @@ def convertDate(date):
     return datetime.utcfromtimestamp(date/1000).strftime("%Y-%m-%d")# %H:%M:%S')
 
 
+@st.cache(allow_output_mutation=True, suppress_st_warning=True)
+def loadData():
+    fires = gpd.read_file("data/norCalFires.geojson")
+    fires["Start"] = pd.DatetimeIndex(fires["Start"])
+    fires["End"] = pd.DatetimeIndex(fires["End"])
+
+    # fires["geometry"] = fires["geometry"].apply(lambda x: boundsBuffer(x.bounds))
+    return fires
+
+
 
 def formatSelectBoxOptions(data):
     return {k: "{} ({})".format(v1, v2) for k, v1, v2 in data[["ID", "Fire", "Year"]].sort_values(by="Fire").values}
@@ -70,14 +82,24 @@ def prepImage(preFireImage, postFireImage, geometry, endDate):
     # Calculate NBR, dNBR, and burn severity
     preFireNBR = preFireImage.normalizedDifference(['SR_B5', 'SR_B7'])
     postFireNBR = postFireImage.normalizedDifference(['SR_B5', 'SR_B7'])
-    dNBR = (preFireNBR.subtract(postFireNBR)).multiply(1000).rename("dNBR")
+    dNBR = (preFireNBR.subtract(postFireNBR)
+                     ).multiply(1000
+                     ).rename("dNBR")
 
     # postFireDate = convertDate(postFireImage.date())
-    burnSeverity = dNBR.expression(" (b('dNBR') > 425) ? 4 "    # purple: high severity
-                                   ":(b('dNBR') > 225) ? 3 "    # orange: moderate severity
-                                   ":(b('dNBR') > 100) ? 2 "    # yellow: low severity
-                                   ":(b('dNBR') > -60) ? 1 "    # green: unburned/unchanged
-                                   ":0"                         # brown: vegetation growth
+    # burnSeverity = dNBR.expression(" (b('dNBR') > 425) ? 4 "    # purple: high severity
+    #                                ":(b('dNBR') > 225) ? 3 "    # orange: moderate severity
+    #                                ":(b('dNBR') > 100) ? 2 "    # yellow: low severity
+    #                                ":(b('dNBR') > -60) ? 1 "    # green: unburned/unchanged
+    #                                ":0"                         # brown: vegetation growth
+    #                   ).rename("burnSeverity")
+
+    burnSeverity = dNBR.expression(" (b('dNBR') > 425) ? 5 "    # purple: high severity
+                                   ":(b('dNBR') > 225) ? 4 "    # orange: moderate severity
+                                   ":(b('dNBR') > 100) ? 3 "    # yellow: low severity
+                                   ":(b('dNBR') > -60) ? 2 "    # green: unburned/unchanged
+                                   ":(b('dNBR') <= -60) ? 1 "   # brown: vegetation growth
+                                   ":0"                         # pseudo mask
                       ).rename("burnSeverity")
 
     # Get SRTM elevation, NLCD land coverpostFireImageNDVI, and GRIDMET weather
@@ -85,25 +107,45 @@ def prepImage(preFireImage, postFireImage, geometry, endDate):
     nlcd = ee.ImageCollection('USGS/NLCD_RELEASES/2016_REL'
             ).filter(ee.Filter.eq('system:index', '2016')).first()
 
-    lc = nlcd.select("landcover")
-    nlcd = nlcd.select([i for i in range(1,13)])
-    nlcd = nlcd.addBands(lc.expression(" (b('landcover') > 90) ? 0 "    # blue: other (wetland)
-                                         ":(b('landcover') > 80) ? 5 "    # brown: agriculture
-                                         ":(b('landcover') > 70) ? 4 "    # lightGreen: grassland/herbaceous
-                                         ":(b('landcover') > 50) ? 3 "    # yellow: shrub
-                                         ":(b('landcover') > 40) ? 2 "    # green: forest
-                                         ":(b('landcover') > 30) ? 0 "    # blue: other (barren land)
-                                         ":(b('landcover') > 20) ? 1 "    # red: developed/urban
-                                         ":0"                             # blue: other (water/perennial ice+snow)
-                            ).rename("landcover"))
+    # lc = nlcd.select("landcover")
+    # nlcd = nlcd.select([i for i in range(1,13)])
+    # nlcd = nlcd.addBands(lc.expression(" (b('landcover') > 90) ? 0 "    # blue: other (wetland)
+    #                                      ":(b('landcover') > 80) ? 5 "    # brown: agriculture
+    #                                      ":(b('landcover') > 70) ? 4 "    # lightGreen: grassland/herbaceous
+    #                                      ":(b('landcover') > 50) ? 3 "    # yellow: shrub
+    #                                      ":(b('landcover') > 40) ? 2 "    # green: forest
+    #                                      ":(b('landcover') > 30) ? 0 "    # blue: other (barren land)
+    #                                      ":(b('landcover') > 20) ? 1 "    # red: developed/urban
+    #                                      ":0"                             # blue: other (water/perennial ice+snow)
+    #                         ).rename("landcover"))
+
+    # lc = nlcd.select("landcover")
+    # nlcd = nlcd.select([i for i in range(1,13)])
+    lc = nlcd.select("landcover"
+            ).expression(" (b('landcover') > 90) ? 1 "    # blue: other (wetland)
+                         ":(b('landcover') > 80) ? 6 "    # brown: agriculture
+                         ":(b('landcover') > 70) ? 5 "    # lightGreen: grassland/herbaceous
+                         ":(b('landcover') > 50) ? 4 "    # yellow: shrub
+                         ":(b('landcover') > 40) ? 3 "    # green: forest
+                         ":(b('landcover') > 30) ? 1 "    # blue: other (barren land)
+                         ":(b('landcover') > 20) ? 2 "    # red: developed/urban
+                         ":(b('landcover') > 10) ? 1 "    # blue: other (water/perennial ice+snow)
+                         ":0"                             # handle for potential outliers
+            ).rename("landCover")
 
 
-    ndvi = postFireImage.normalizedDifference(["SR_B5", "SR_B4"]).rename("NDVI")
+
+    # ndvi = postFireImage.normalizedDifference(["SR_B5", "SR_B4"]).rename("NDVI")
+    ndvi = postFireImage.normalizedDifference(["SR_B5", "SR_B4"]
+                       ).rename("NDVI"
+                       ).multiply(1000)
 
     gridmet = ee.ImageCollection("IDAHO_EPSCOR/GRIDMET"
                ).filterBounds(geometry
                ).filterDate(endDate.advance(-3, "day"), endDate
                ).mean()
+
+    postFireImage = postFireImage.divide(10)
 
     # Merge all image bands together
     combined = postFireImage.select('SR_B.'          # post-fire L8 bands 1-7
@@ -112,16 +154,25 @@ def prepImage(preFireImage, postFireImage, geometry, endDate):
                            ).addBands(ndvi           # post-fire NDVI
                            ).addBands(dem            # SRTM elevation
                            ).addBands(gridmet        # all GRIDMET bands
-                           ).addBands(nlcd           # all NLCD bands
-                           )#.set("FIRE_NAME", fireName)
+                           ).addBands(nlcd.select([1,2,3])
+                           ).addBands(lc)          # all NLCD bands
+                           # )#.set("FIRE_NAME", fireName)
     return combined
 
 
-def loadTif(numTries, imgScale, fireID, image, geometry):
+def loadTif(numTries, imgScale, fireID, image, geometry, path="tifs"):
     startTime = time.time()
+    if not os.path.exists(path):
+        os.mkdir(path)
+
     for i in range(numTries):
         try:
-            geemap.ee_export_image(image, "tifs/{}.tif".format(fireID), scale=imgScale[i], region=geometry)
+            geemap.ee_export_image(ee_object=image,
+                                   filename=os.path.join(path, "{}.tif".format(fireID)),
+                                   scale=imgScale[i],
+                                   region=geometry)
+            # os.path.join(path, "{}.tif".format(fireID))
+            # geemap.ee_export_image(image, "tifs/{}.tif".format(fireID), scale=imgScale[i], region=geometry)
             st.success("#### Downloaded tif at {}m scale".format(imgScale[i]))
             break
         except Exception:
@@ -134,18 +185,7 @@ def loadTif(numTries, imgScale, fireID, image, geometry):
 
 
 
-
-
-def add_legend(
-    map,
-    title="Legend",
-    colors=None,
-    labels=None,
-    legend_dict=None,
-    builtin_legend=None,
-    opacity=1.0,
-    **kwargs,
-):
+def add_legend(map, legend_dict=None, opacity=1.0):
     """Adds a customized basemap to the map. Reference: https://bit.ly/3oV6vnH
 
     Args:
@@ -157,8 +197,6 @@ def add_legend(
         opacity (float, optional): The opacity of the legend. Defaults to 1.0.
 
     """
-
-    # import pkg_resources
     from branca.element import MacroElement, Template
 
     legend_template = os.path.join("legendTemplate.txt")

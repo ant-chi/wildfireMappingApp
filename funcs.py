@@ -8,6 +8,14 @@ import time
 from datetime import datetime, timedelta
 from shapely.geometry import Point, Polygon
 import os
+import altair as alt
+import rasterio as rio
+from functools import reduce
+from operator import iconcat
+# from htbuilder import HtmlElement, div, ul, li, br, hr, a, p, img, styles, classes, fonts
+# from htbuilder.units import percent, px
+# from htbuilder.funcs import rgba, rgb
+
 
 
 def boundsBuffer(x, buffer=0):
@@ -51,6 +59,14 @@ def loadData():
     return fires
 
 
+def updateIdState(fireID):
+    st.session_state['idLst'].append(fireID)
+    st.session_state['currentIndex'] += 1
+
+    return st.session_state['idLst'], st.session_state['currentIndex']
+
+def updateEE(preFireImage, postFireImage, combined, geometry):
+    st.session_state["eeAssets"] = [preFireImage, postFireImage, combined, geometry]
 
 def formatSelectBoxOptions(data):
     return {k: "{} ({})".format(v1, v2) for k, v1, v2 in data[["ID", "Fire", "Year"]].sort_values(by="Fire").values}
@@ -75,9 +91,26 @@ def subsetFires(data, startYear, endYear, sizeClass=None, counties=None):
 
     return subset.sort_values(by="Fire").reset_index(drop=True)
 
+def prepData(fireGPD):
+    fire_EE = geemap.gdf_to_ee(fireGPD).first()
+    startDate, endDate = ee.Date(fire_EE.get("Start")), ee.Date(fire_EE.get("End"))
+    fireGeometry = ee.Geometry(fire_EE.geometry())
 
+    preFireImage = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2"
+                    ).filterDate(startDate.advance(-60, "day"), startDate
+                    ).filterBounds(fireGeometry
+                    ).sort("CLOUD_COVER", True
+                    ).limit(2
+                    ).mosaic(
+                    ).clip(fireGeometry)
 
-def prepImage(preFireImage, postFireImage, geometry, endDate):
+    postFireImage = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2"
+                     ).filterDate(endDate, endDate.advance(60, "day")
+                     ).filterBounds(fireGeometry
+                     ).sort("CLOUD_COVER", True
+                     ).limit(2
+                     ).mosaic(
+                     ).clip(fireGeometry)
 
     # Calculate NBR, dNBR, and burn severity
     preFireNBR = preFireImage.normalizedDifference(['SR_B5', 'SR_B7'])
@@ -85,14 +118,6 @@ def prepImage(preFireImage, postFireImage, geometry, endDate):
     dNBR = (preFireNBR.subtract(postFireNBR)
                      ).multiply(1000
                      ).rename("dNBR")
-
-    # postFireDate = convertDate(postFireImage.date())
-    # burnSeverity = dNBR.expression(" (b('dNBR') > 425) ? 4 "    # purple: high severity
-    #                                ":(b('dNBR') > 225) ? 3 "    # orange: moderate severity
-    #                                ":(b('dNBR') > 100) ? 2 "    # yellow: low severity
-    #                                ":(b('dNBR') > -60) ? 1 "    # green: unburned/unchanged
-    #                                ":0"                         # brown: vegetation growth
-    #                   ).rename("burnSeverity")
 
     burnSeverity = dNBR.expression(" (b('dNBR') > 425) ? 5 "    # purple: high severity
                                    ":(b('dNBR') > 225) ? 4 "    # orange: moderate severity
@@ -107,20 +132,6 @@ def prepImage(preFireImage, postFireImage, geometry, endDate):
     nlcd = ee.ImageCollection('USGS/NLCD_RELEASES/2016_REL'
             ).filter(ee.Filter.eq('system:index', '2016')).first()
 
-    # lc = nlcd.select("landcover")
-    # nlcd = nlcd.select([i for i in range(1,13)])
-    # nlcd = nlcd.addBands(lc.expression(" (b('landcover') > 90) ? 0 "    # blue: other (wetland)
-    #                                      ":(b('landcover') > 80) ? 5 "    # brown: agriculture
-    #                                      ":(b('landcover') > 70) ? 4 "    # lightGreen: grassland/herbaceous
-    #                                      ":(b('landcover') > 50) ? 3 "    # yellow: shrub
-    #                                      ":(b('landcover') > 40) ? 2 "    # green: forest
-    #                                      ":(b('landcover') > 30) ? 0 "    # blue: other (barren land)
-    #                                      ":(b('landcover') > 20) ? 1 "    # red: developed/urban
-    #                                      ":0"                             # blue: other (water/perennial ice+snow)
-    #                         ).rename("landcover"))
-
-    # lc = nlcd.select("landcover")
-    # nlcd = nlcd.select([i for i in range(1,13)])
     lc = nlcd.select("landcover"
             ).expression(" (b('landcover') > 90) ? 1 "    # blue: other (wetland)
                          ":(b('landcover') > 80) ? 6 "    # brown: agriculture
@@ -130,22 +141,17 @@ def prepImage(preFireImage, postFireImage, geometry, endDate):
                          ":(b('landcover') > 30) ? 1 "    # blue: other (barren land)
                          ":(b('landcover') > 20) ? 2 "    # red: developed/urban
                          ":(b('landcover') > 10) ? 1 "    # blue: other (water/perennial ice+snow)
-                         ":0"                             # handle for potential outliers
+                         ":0"                             # handle for potential exceptions
             ).rename("landCover")
 
-
-
-    # ndvi = postFireImage.normalizedDifference(["SR_B5", "SR_B4"]).rename("NDVI")
     ndvi = postFireImage.normalizedDifference(["SR_B5", "SR_B4"]
                        ).rename("NDVI"
                        ).multiply(1000)
 
     gridmet = ee.ImageCollection("IDAHO_EPSCOR/GRIDMET"
-               ).filterBounds(geometry
+               ).filterBounds(fireGeometry
                ).filterDate(endDate.advance(-3, "day"), endDate
                ).mean()
-
-    postFireImage = postFireImage.divide(10)
 
     # Merge all image bands together
     combined = postFireImage.select('SR_B.'          # post-fire L8 bands 1-7
@@ -154,36 +160,63 @@ def prepImage(preFireImage, postFireImage, geometry, endDate):
                            ).addBands(ndvi           # post-fire NDVI
                            ).addBands(dem            # SRTM elevation
                            ).addBands(gridmet        # all GRIDMET bands
-                           ).addBands(nlcd.select([1,2,3])
-                           ).addBands(lc)          # all NLCD bands
-                           # )#.set("FIRE_NAME", fireName)
-    return combined
+                           ).addBands(nlcd.select("percent_tree_cover")
+                           ).addBands(lc)            # simplified landCover
+
+    return preFireImage, postFireImage, combined, fireGeometry
 
 
-def loadTif(numTries, imgScale, fireID, image, geometry, path="tifs"):
+def loadRaster(imgScale, fireID, image, geometry, path="rasters"):
     startTime = time.time()
-    if not os.path.exists(path):
-        os.mkdir(path)
-
+    numTries = len(imgScale)
+    success = False
     for i in range(numTries):
         try:
             geemap.ee_export_image(ee_object=image,
                                    filename=os.path.join(path, "{}.tif".format(fireID)),
                                    scale=imgScale[i],
                                    region=geometry)
-            # os.path.join(path, "{}.tif".format(fireID))
-            # geemap.ee_export_image(image, "tifs/{}.tif".format(fireID), scale=imgScale[i], region=geometry)
-            st.success("#### Downloaded tif at {}m scale".format(imgScale[i]))
+            success = True
+            resolution = imgScale[i]
             break
         except Exception:
-            if i == numTries-1:
-                st.warning("### Fire exceeds total request size")
-            else:
-                st.write("#### Retrying at {}m scale".format(imgScale[i+1]))
+            continue
 
-    st.write("Runtime: {} minutes".format(np.round((time.time()-startTime)/60, 3)))
+    if success:
+        st.success("#### Downloaded raster at {}m scale in {} seconds".format(resolution, np.round((time.time()-startTime), 2)))
+    else:
+        st.error("#### Fire exceeds total request size")
+        # st.success("#### Downloaded tif at {}m scale in {} seconds".format(imgScale[i]),np.round((time.time()-startTime), 3))
+    # st.write("Runtime: {} seconds".format(np.round((time.time()-startTime), 3)))
 
 
+def rasterToCsv(dir, fireID):
+    colNames = ['SR_B1','SR_B2','SR_B3','SR_B4','SR_B5','SR_B6','SR_B7',
+                'burnSeverity','dNBR','NDVI','elevation','pr','rmax','rmin',
+                'sph','srad','th','tmmn','tmmx','vs','erc','eto','bi',
+                'fm100','fm1000','etr','vpd','percent_tree_cover','landCover']
+
+    intCols = colNames[:11] + colNames[-2:]
+    floatCols = colNames[11:-2]
+    colNames = {index+1:value for index, value in enumerate(colNames)}
+
+    path = os.path.join(dir, "{}.tif".format(fireID))
+
+    # Open raster and store band data with dict
+    img, data = rio.open(path), {}
+    for index, val in colNames.items():
+        data[val] = reduce(iconcat, img.read(index), [])
+
+    # Convert to df, remove NA's if present (unlikely), apply pseudo mask, and cast to int for memory reduction
+    df = pd.DataFrame(data).dropna()
+    df = df[df["burnSeverity"]>0].reset_index(drop=True).round(2)
+    df[intCols] = df[intCols].astype(int)
+    df.to_csv("rasters/{}.csv".format(fireID), index=False)
+
+
+
+
+# ############
 
 def add_legend(map, legend_dict=None, opacity=1.0):
     """Adds a customized basemap to the map. Reference: https://bit.ly/3oV6vnH
@@ -237,3 +270,89 @@ def add_legend(map, legend_dict=None, opacity=1.0):
     macro._template = Template(template)
 
     return map.get_root().add_child(macro)
+
+
+
+
+# def plotLandCover(data):
+#     data.pivot_
+    # return alt.Chart(data
+    #          ).mark_bar(
+    #          ).encode(x=alt.X("landCover:Q", title="Land Cover"),
+    #                   y=alt.)
+
+
+# def image(src_as_string, **style):
+#     return img(src=src_as_string, style=styles(**style))
+#
+#
+# def link(link, text, **style):
+#     return a(_href=link, _target="_blank", style=styles(**style))(text)
+#
+#
+# def layout(*args):
+#
+#     style = """
+#     <style>
+#       # MainMenu {visibility: hidden;}
+#       footer {visibility: hidden;}
+#      .stApp { bottom: 105px; }
+#     </style>
+#     """
+#
+#     style_div = styles(
+#         position="fixed",
+#         left=0,
+#         bottom=0,
+#         margin=px(0, 0, 0, 0),
+#         width=percent(100),
+#         color="black",
+#         text_align="center",
+#         # height="auto",
+#         height=percent(7.5),
+#         opacity=1
+#     )
+#
+#     style_hr = styles(
+#         display="block",
+#         margin=px(8, 8, "auto", "auto"),
+#         border_style="inset",
+#         border_width=px(2)
+#     )
+#
+#     # body = p()
+#     # foot = div(
+#     #     style=style_div
+#     # )(
+#     #     hr(
+#     #         style=style_hr
+#     #     ),
+#     #     body
+#     # )
+#
+#     st.markdown(style, unsafe_allow_html=True)
+#
+#     for arg in args:
+#         if isinstance(arg, str):
+#             body(arg)
+#
+#         elif isinstance(arg, HtmlElement):
+#             body(arg)
+#
+#     st.markdown(str(foot), unsafe_allow_html=True)
+#
+#
+#
+# def footer():
+#     myargs = [
+#         "Made in ",
+#         image('https://avatars3.githubusercontent.com/u/45109972?s=400&v=4',
+#               width=px(25), height=px(25)),
+#         # " with ❤️ by ",
+#         "by ",
+#         link("https://github.com/cashcountinchi/capstoneApp", "Anthony Chi"),
+#         br(),
+#         # link("https://buymeacoffee.com/chrischross", image('https://i.imgur.com/thJhzOO.png')),
+#     ]
+#
+#     # layout(*myargs)

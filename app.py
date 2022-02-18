@@ -17,20 +17,20 @@ from funcs import *
 
 
 ########## App starts here ##########
-ee.Initialize()
 
 st.set_page_config(layout="wide", page_title="INSERT TITLE", page_icon=":earth_americas:")
 
-# load and cache data
+# initialize EE + load and cache data
+ee.Initialize()
 df = loadData()
 
-# add session states
+# initialize session states
 if "idLst" not in st.session_state:
-    st.session_state["idLst"] = [42033]
+    st.session_state["idLst"] = [42033]      # stores fireID and intialized with ID for Abney (default)
 if "currentIndex" not in st.session_state:
-    st.session_state["currentIndex"] = 0
-if "eeAssets" not in st.session_state:
-    st.session_state["eeAssets"] = None
+    st.session_state["currentIndex"] = 0     # initializes index of current fireID
+if "eeObjects" not in st.session_state:
+    st.session_state["eeObjects"] = None      # stores necessary EE objects when data is queried
 
 
 if not os.path.exists("rasters"):
@@ -45,7 +45,7 @@ burn_viz = {"bands": ["burnSeverity"],
             "palette": ["706c1e", "4e9d5c", "fff70b", "ff641b", "a41fd6"],
             "min": 1, "max": 5}
 
-nlcd_viz = {"bands": ["landCover"],
+nlcd_viz = {"bands": ["landCoverViz"],
             "palette": ["A2D6F2", "FF7F68", "258914", "FFF100", "7CD860", "B99B56"],
             "min": 1, "max": 6}
 
@@ -78,7 +78,7 @@ dfSubset = subsetFires(df, startYear, endYear, sizeClasses, counties)
 st.write("#### {} fires in query".format(dfSubset.shape[0]))
 # queriedFires = st.expander("View data")
 with st.expander("View data"):
-    col_3, col_4 = st.columns(2)
+    # col_3, col_4 = st.columns(2)
     temp = dfSubset[["Fire", "County", "Start", "End", "Acres", "Size Class"]]
     temp["Start"] = temp["Start"].apply(lambda x: str(x)[:10])
     temp["End"] = temp["End"].apply(lambda x: str(x)[:10])
@@ -145,40 +145,20 @@ if mapFireSubmit:
     tempMessage = st.empty()
 
     if idLst[currentIndex-1] != idLst[currentIndex] or len(idLst)==2:
-        tempMessage.write("##### Querying data")
+        tempMessage.write("#### Querying data")
         for i in os.listdir("rasters"):
             os.remove(os.path.join("rasters", i))
 
-        preFireL8, postFireL8, combined, fireGeometry = prepData(dfSubset[dfSubset["ID"]==fireID])
-        # wrap with function
-        # fire_EE = geemap.gdf_to_ee(dfSubset[dfSubset["ID"]==fireID]).first()
-        # startDate, endDate = ee.Date(fire_EE.get("Start")), ee.Date(fire_EE.get("End"))
-        # fireGeometry = ee.Geometry(fire_EE.geometry())
-        #
-        # # look into partial image issue
-        # startCol = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2"
-        #             ).filterDate(startDate.advance(-60, "day"), startDate
-        #             ).filterBounds(fireGeometry
-        #             ).sort("CLOUD_COVER", True
-        #             ).limit(2
-        #             ).mosaic()
-        #
-        # endCol = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2"
-        #           ).filterDate(endDate, endDate.advance(60, "day")
-        #           ).filterBounds(fireGeometry
-        #           ).sort("CLOUD_COVER", True
-        #           ).limit(2
-        #           ).mosaic()
-        #
-        # img1, img2 = startCol.clip(fireGeometry), endCol.clip(fireGeometry)
+        # preFireL8, postFireL8, combined, fireGeometry = prepData(dfSubset[dfSubset["ID"]==fireID])
+        # st.session_state["eeObjects"] = [preFireL8, postFireL8, combined, fireGeometry]
 
-        # combined = prepImage(preFireL8, postFireL8, fireGeometry, endDate)
-        st.session_state["eeAssets"] = [preFireL8, postFireL8, combined, fireGeometry]
+        st.session_state["eeObjects"] = prepData(dfSubset[dfSubset["ID"]==fireID])
+        preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
 
         loadRaster([30, 60, 90, 120, 150], fireID, combined, fireGeometry)
         rasterToCsv("rasters", fireID)
     else: # access session_state variables
-        preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeAssets"]
+        preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
 
 
     with st.container():
@@ -186,8 +166,7 @@ if mapFireSubmit:
         df = pd.read_csv("rasters/{}.csv".format(fireID))
         # st.write(df.head(), df.shape)
 
-        m = fmap.Map(add_google_map=False)
-
+        m = fmap.Map(add_google_map=False)   # initialize folium Map
         add_legend(map=m,
                    legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
                                         ["None"]+burn_viz["palette"]+["None"]+nlcd_viz["palette"])))
@@ -198,100 +177,7 @@ if mapFireSubmit:
         m.addLayer(combined.clip(fireGeometry), burn_viz, "Burn Severity")
         m.addLayer(combined.clip(fireGeometry), nlcd_viz, "Land Cover")
 
-        m.add_local_tile(source="rasters/{}.tif".format(fireID),
-                          band=8,
-                          palette="Reds",
-                          vmin=1,   # comment out to show entire raster with bbox
-                          vmax=5,
-                          nodata=0,
-                          layer_name="Local Tif")
-
-
-        lon, lat = fireGeometry.centroid().getInfo()["coordinates"]
-        m.setCenter(lon, lat, zoom=10)
-        m.add_layer_control()
-
-        emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.5,1])
-        with col_7:
-            m.to_streamlit(height=700, width=600, scrolling=True)
-
-    st.write("Runtime: {} seconds".format(np.round((time.time()-startTime), 2)))
-
-
-#################
-    # for i in os.listdir("rasters"):
-    #     if os.path.splitext(i)[1] != ".md":
-    #         os.remove(os.path.join("rasters", i))
-    #
-    # fire_EE = geemap.gdf_to_ee(dfSubset[dfSubset["ID"]==fireID]).first()
-    # startDate, endDate = ee.Date(fire_EE.get("Start")), ee.Date(fire_EE.get("End"))
-    # fireGeometry = ee.Geometry(fire_EE.geometry())
-    #
-    # # look into partial image issue
-    # startCol = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2"
-    #             ).filterDate(startDate.advance(-60, "day"), startDate
-    #             ).filterBounds(fireGeometry
-    #             ).sort("CLOUD_COVER", True
-    #             ).limit(2
-    #             ).mosaic()
-    #
-    # endCol = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2"
-    #           ).filterDate(endDate, endDate.advance(60, "day")
-    #           ).filterBounds(fireGeometry
-    #           ).sort("CLOUD_COVER", True
-    #           ).limit(2
-    #           ).mosaic()
-    #
-    # img1, img2 = startCol.clip(fireGeometry), endCol.clip(fireGeometry)
-    #
-    # combined = prepImage(img1, img2, fireGeometry, endDate)
-    # loadTif(5, [30, 60, 90, 120, 150], fireID, combined, fireGeometry)
-    #
-    # tifToCsv("rasters", fireID)
-    #
-    #
-    # with st.container():
-    #     m2 = fmap.Map(add_google_map=False)
-    #
-    #     add_legend(map=m2,
-    #                legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
-    #                                     ["None"]+burn_viz["palette"]+["None"]+nlcd_viz["palette"])))
-
-        # m2.add_legend(title="Burn Severity",
-        #              labels=["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["<h4>Land Cover</h4>"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
-        #              colors=burn_viz["palette"]+[None]+nlcd_viz["palette"])
-
-        # m2.add_legend(title="Land Cover",
-        #              labels=["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
-        #              colors=nlcd_viz["palette"])
-
-        # burnLegend = LegendControl(dict(zip(["Vegetation Growth", "Unburned", "Low", "Moderate", "High"],
-        #                                     ["#"+i for i in burn_viz["palette"]])),
-        #                            name="Burn Severity",
-        #                            position="bottomleft")
-        #
-        # nlcdLegend = LegendControl(dict(zip(["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
-        #                                     ["#"+i for i in nlcd_viz["palette"]])),
-        #                            name="NLCD",
-        #                            position="bottomright")
-        #
-        # m1.add_control(nlcdLegend)
-        # m1.add_control(burnLegend)
-
-        # m2.addLayer(img1, l8_viz, "Pre-Fire L8")
-        # m2.addLayer(img2, l8_viz, "Post-Fire L8")
-        #
-        # m2.addLayer(combined.clip(fireGeometry), burn_viz, "Burn Severity")
-        # m2.addLayer(combined.clip(fireGeometry), nlcd_viz, "Land Cover")
-
-
-        # img = rxr.open_rasterio("tifs/{}.tif".format(fireID))
-        # img_plot = img.where(~img.isnull(), img.min())
-
-        # m2.add_child(folium.raster_layers.ImageOverlay(scaled_img,
-        #                                       opacity=.9))
-
-        # m2.add_local_tile(source="rasters/{}.tif".format(fireID),
+        # m.add_local_tile(source="rasters/{}.tif".format(fireID),
         #                   band=8,
         #                   palette="Reds",
         #                   vmin=1,   # comment out to show entire raster with bbox
@@ -300,14 +186,19 @@ if mapFireSubmit:
         #                   layer_name="Local Tif")
 
 
+        lon, lat = fireGeometry.centroid().getInfo()["coordinates"]
+        m.setCenter(lon, lat, zoom=10)
+        m.add_layer_control()
+        chart_1, chart_2 = plotLandCover(df)
 
+        emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.5,1])
+        with col_7:
+            m.to_streamlit(height=700, width=600, scrolling=True)
 
-        # lon, lat = fireGeometry.centroid().getInfo()["coordinates"]
-        # m2.setCenter(lon, lat, zoom=10)
-        #
-        # emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.5,1])
-        # with col_7:
-        #     m2.to_streamlit(height=700, width=600, scrolling=True)
+        st.altair_chart(chart_1)
+        st.altair_chart(chart_2)
+
+    st.write("Runtime: {} seconds".format(np.round((time.time()-startTime), 2)))
 
 
 footer="""<style>

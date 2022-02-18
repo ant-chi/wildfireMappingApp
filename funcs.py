@@ -5,17 +5,13 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 import time
-from datetime import datetime, timedelta
-from shapely.geometry import Point, Polygon
+from datetime import datetime
+from shapely.geometry import Polygon
 import os
 import altair as alt
 import rasterio as rio
 from functools import reduce
 from operator import iconcat
-# from htbuilder import HtmlElement, div, ul, li, br, hr, a, p, img, styles, classes, fonts
-# from htbuilder.units import percent, px
-# from htbuilder.funcs import rgba, rgb
-
 
 
 def boundsBuffer(x, buffer=0):
@@ -80,12 +76,12 @@ def subsetFires(data, startYear, endYear, sizeClass=None, counties=None):
         subset = data[(data["Year"] >= startYear) & (data["Year"] < endYear)]
 
     if len(sizeClass) == 0:
-        st.warning("### Size Class is not selected (Filter will not be applied)")
+        st.warning("#### Size Class is not selected (Filter will not be applied)")
     else:
         subset = subset[subset["Size Class"].isin(sizeClass)]
 
     if len(counties) == 0:
-        st.warning("### County is not selected (Filter will not be applied)")
+        st.warning("#### County is not selected (Filter will not be applied)")
     else:
         subset = subset[subset["County"].isin(counties)]
 
@@ -93,6 +89,7 @@ def subsetFires(data, startYear, endYear, sizeClass=None, counties=None):
 
 def prepData(fireGPD):
     fire_EE = geemap.gdf_to_ee(fireGPD).first()
+    # year = fireGPD["Start"].year ###
     startDate, endDate = ee.Date(fire_EE.get("Start")), ee.Date(fire_EE.get("End"))
     fireGeometry = ee.Geometry(fire_EE.geometry())
 
@@ -129,8 +126,9 @@ def prepData(fireGPD):
 
     # Get SRTM elevation, NLCD land coverpostFireImageNDVI, and GRIDMET weather
     dem = ee.Image("NASA/NASADEM_HGT/001").select("elevation")
+
     nlcd = ee.ImageCollection('USGS/NLCD_RELEASES/2016_REL'
-            ).filter(ee.Filter.eq('system:index', '2016')).first()
+               ).filter(ee.Filter.eq('system:index', '2016')).first()
 
     lc = nlcd.select("landcover"
             ).expression(" (b('landcover') > 90) ? 1 "    # blue: other (wetland)
@@ -143,6 +141,24 @@ def prepData(fireGPD):
                          ":(b('landcover') > 10) ? 1 "    # blue: other (water/perennial ice+snow)
                          ":0"                             # handle for potential exceptions
             ).rename("landCover")
+
+
+    lcViz = ee.ImageCollection('USGS/NLCD_RELEASES/2016_REL'
+             ).filter(ee.Filter.eq('system:index', '2011')
+             ).first(
+             ).select("landcover"
+             ).expression(" (b('landcover') > 90) ? 1 "    # blue: other (wetland)
+                          ":(b('landcover') > 80) ? 6 "    # brown: agriculture
+                          ":(b('landcover') > 70) ? 5 "    # lightGreen: grassland/herbaceous
+                          ":(b('landcover') > 50) ? 4 "    # yellow: shrub
+                          ":(b('landcover') > 40) ? 3 "    # green: forest
+                          ":(b('landcover') > 30) ? 1 "    # blue: other (barren land)
+                          ":(b('landcover') > 20) ? 2 "    # red: developed/urban
+                          ":(b('landcover') > 10) ? 1 "    # blue: other (water/perennial ice+snow)
+                          ":0"                             # handle for potential exceptions)
+             ).clip(fireGeometry
+             ).rename("landCoverViz")
+
 
     ndvi = postFireImage.normalizedDifference(["SR_B5", "SR_B4"]
                        ).rename("NDVI"
@@ -161,9 +177,10 @@ def prepData(fireGPD):
                            ).addBands(dem            # SRTM elevation
                            ).addBands(gridmet        # all GRIDMET bands
                            ).addBands(nlcd.select("percent_tree_cover")
-                           ).addBands(lc)            # simplified landCover
+                           ).addBands(lc             # simplified landCover for model
+                           ).addBands(lcViz)         # simplified landCover for viz
 
-    return preFireImage, postFireImage, combined, fireGeometry
+    return [preFireImage, postFireImage, combined, fireGeometry]
 
 
 def loadRaster(imgScale, fireID, image, geometry, path="rasters"):
@@ -183,21 +200,19 @@ def loadRaster(imgScale, fireID, image, geometry, path="rasters"):
             continue
 
     if success:
-        st.success("#### Downloaded raster at {}m scale in {} seconds".format(resolution, np.round((time.time()-startTime), 2)))
+        st.success("##### Downloaded raster at {}m scale in {} seconds".format(resolution, np.round((time.time()-startTime), 2)))
     else:
         st.error("#### Fire exceeds total request size")
-        # st.success("#### Downloaded tif at {}m scale in {} seconds".format(imgScale[i]),np.round((time.time()-startTime), 3))
-    # st.write("Runtime: {} seconds".format(np.round((time.time()-startTime), 3)))
 
 
 def rasterToCsv(dir, fireID):
     colNames = ['SR_B1','SR_B2','SR_B3','SR_B4','SR_B5','SR_B6','SR_B7',
                 'burnSeverity','dNBR','NDVI','elevation','pr','rmax','rmin',
-                'sph','srad','th','tmmn','tmmx','vs','erc','eto','bi',
-                'fm100','fm1000','etr','vpd','percent_tree_cover','landCover']
+                'sph','srad','th','tmmn','tmmx','vs','erc','eto','bi','fm100',
+                'fm1000','etr','vpd','percent_tree_cover','landCover','landCoverViz']
 
-    intCols = colNames[:11] + colNames[-2:]
-    floatCols = colNames[11:-2]
+    intCols = colNames[:11] + colNames[-3:]
+    floatCols = colNames[11:-3]
     colNames = {index+1:value for index, value in enumerate(colNames)}
 
     path = os.path.join(dir, "{}.tif".format(fireID))
@@ -272,87 +287,54 @@ def add_legend(map, legend_dict=None, opacity=1.0):
     return map.get_root().add_child(macro)
 
 
+def plotLandCover(data):
+    bsMap = {1: "Vegetation Growth", 2: "Unburned", 3: "Low", 4: "Moderate", 5: "High"}
+    lcMap = {1: "Other", 2: "Developed", 3: "Forest", 4: "Shrub", 5: "Grassland", 6: "Agriculture"}
+
+    bsPivot = data.pivot_table(index="burnSeverity",
+                               values="SR_B1",
+                               aggfunc=len
+                 ).reset_index(
+                 ).sort_values(by="burnSeverity"
+                 ).rename(columns={"burnSeverity": "Burn Severity",
+                                   "SR_B1": "Percentage"})
+    bsPivot["Percentage"] /= bsPivot["Percentage"].sum()
+    bsPivot["Percentage"] = (100*bsPivot["Percentage"]).round(2)
+    bsPivot["Burn Severity"] = bsPivot["Burn Severity"].apply(lambda x: bsMap[x])
 
 
-# def plotLandCover(data):
-#     data.pivot_
-    # return alt.Chart(data
-    #          ).mark_bar(
-    #          ).encode(x=alt.X("landCover:Q", title="Land Cover"),
-    #                   y=alt.)
+    lcPivot = data.pivot_table(index="landCoverViz",
+                               values="SR_B1",
+                               aggfunc=len
+                 ).reset_index(
+                 ).sort_values(by="landCoverViz"
+                 ).rename(columns={"landCoverViz": "Land Cover",
+                                   "SR_B1": "Percentage"})
+    lcPivot["Percentage"] /= lcPivot["Percentage"].sum()
+    lcPivot["Percentage"] = (100*lcPivot["Percentage"]).round(2)
+    lcPivot["Land Cover"] = lcPivot["Land Cover"].apply(lambda x: lcMap[x])
 
 
-# def image(src_as_string, **style):
-#     return img(src=src_as_string, style=styles(**style))
-#
-#
-# def link(link, text, **style):
-#     return a(_href=link, _target="_blank", style=styles(**style))(text)
-#
-#
-# def layout(*args):
-#
-#     style = """
-#     <style>
-#       # MainMenu {visibility: hidden;}
-#       footer {visibility: hidden;}
-#      .stApp { bottom: 105px; }
-#     </style>
-#     """
-#
-#     style_div = styles(
-#         position="fixed",
-#         left=0,
-#         bottom=0,
-#         margin=px(0, 0, 0, 0),
-#         width=percent(100),
-#         color="black",
-#         text_align="center",
-#         # height="auto",
-#         height=percent(7.5),
-#         opacity=1
-#     )
-#
-#     style_hr = styles(
-#         display="block",
-#         margin=px(8, 8, "auto", "auto"),
-#         border_style="inset",
-#         border_width=px(2)
-#     )
-#
-#     # body = p()
-#     # foot = div(
-#     #     style=style_div
-#     # )(
-#     #     hr(
-#     #         style=style_hr
-#     #     ),
-#     #     body
-#     # )
-#
-#     st.markdown(style, unsafe_allow_html=True)
-#
-#     for arg in args:
-#         if isinstance(arg, str):
-#             body(arg)
-#
-#         elif isinstance(arg, HtmlElement):
-#             body(arg)
-#
-#     st.markdown(str(foot), unsafe_allow_html=True)
-#
-#
-#
-# def footer():
-#     myargs = [
-#         "Made in ",
-#         image('https://avatars3.githubusercontent.com/u/45109972?s=400&v=4',
-#               width=px(25), height=px(25)),
-#         # " with ❤️ by ",
-#         "by ",
-#         link("https://github.com/cashcountinchi/capstoneApp", "Anthony Chi"),
-#         br(),
-#         # link("https://buymeacoffee.com/chrischross", image('https://i.imgur.com/thJhzOO.png')),
-#     ]
-#
-#     # layout(*myargs)
+    bsChart = alt.Chart(bsPivot
+                ).mark_bar(
+                ).encode(x=alt.X("Burn Severity:O", sort=list(bsMap.values())),
+                         y="Percentage:Q",
+                         color=alt.Color("Burn Severity",
+                                         scale=alt.Scale(domain=list(bsMap.values()),
+                                                         range=["rgb(112,108,30)", "rgb(78,157,92)",
+                                                                "rgb(255,247,11)", "rgb(255,100,27)",
+                                                                "rgb(164,31,214)"])),
+                         tooltip=["Burn Severity", "Percentage"])
+
+    lcChart = alt.Chart(lcPivot
+                ).mark_bar(
+                ).encode(x=alt.X("Land Cover:O", sort=list(lcMap.values())),
+                         y="Percentage:Q",
+                         color=alt.Color("Land Cover",
+                                         scale=alt.Scale(domain=list(lcMap.values()),
+                                                         range=["rgb(162,214,242)", "rgb(255,127,104)",
+                                                                "rgb(37,137,20)", "rgb(255,241,0)",
+                                                                "rgb(123,216,96)", "rgb(185,155,86)"])),
+                         tooltip=["Land Cover", "Percentage"])
+
+    return bsChart, lcChart

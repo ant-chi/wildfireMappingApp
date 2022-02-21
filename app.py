@@ -21,7 +21,7 @@ from funcs import *
 st.set_page_config(layout="wide", page_title="INSERT TITLE", page_icon=":earth_americas:")
 
 # initialize EE + load and cache data
-ee.Initialize()
+# ee.Initialize()
 df = loadData()
 
 # initialize session states

@@ -41,8 +41,8 @@ if not os.path.exists("rasters"):
 files = []
 for r, d, f in os.walk(os.getcwd()):
     for file in f:
-        if '.txt' in file:
-            files.append(os.path.join(r, file))
+        # if '.txt' in file:
+        files.append(os.path.join(r, file))
 
 for f in files:
     # print(f)

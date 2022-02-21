@@ -38,7 +38,15 @@ if not os.path.exists("rasters"):
     st.write("##### Created rasters directory") ##
     os.mkdir("rasters")
 
-st.write(os.listdir())
+files = []
+for r, d, f in os.walk(path):
+    for file in f:
+        if '.txt' in file:
+            files.append(os.path.join(r, file))
+
+for f in files:
+    # print(f)
+    st.write(f)
 
 # non rescaled l8
 l8_viz = {"bands": ["SR_B7", "SR_B5", "SR_B3"],
@@ -160,7 +168,16 @@ if mapFireSubmit:
         preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
 
         loadRaster([30, 60, 90, 120, 150], fireID, combined, fireGeometry)
-        st.write(os.listdir(), os.listdir("rasters"))
+
+        files = []
+        for r, d, f in os.walk(path):
+            for file in f:
+                if '.txt' in file:
+                    files.append(os.path.join(r, file))
+
+        for f in files:
+            # print(f)
+            st.write(f)
         # rasterToCsv("rasters/{}.tif".format(fireID))
     else: # access session_state variables
         preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]

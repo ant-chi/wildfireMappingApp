@@ -168,10 +168,7 @@ if mapFireSubmit:
         preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
         st.write(fireID, combined.bandNames().size().getInfo())
         loadRaster([30, 60, 90, 120, 150], fireID, combined, fireGeometry)
-        # geemap.ee_export_image(ee_object=combined,
-        #                filename="{}.tif".format(fireID),
-        #                scale=60,
-        #                region=fireGeometry)
+
         files = []
         for r, d, f in os.walk(os.getcwd()):
             for file in f:
@@ -179,7 +176,6 @@ if mapFireSubmit:
                 files.append(os.path.join(r, file))
 
         for f in files:
-            # print(f)
             st.write(f)
         # rasterToCsv("rasters/{}.tif".format(fireID))
     else: # access session_state variables

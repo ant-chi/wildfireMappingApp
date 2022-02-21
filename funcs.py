@@ -201,7 +201,7 @@ def loadRaster(imgScale, fireID, image, geometry):
             continue
 
     if success:
-        os.rename(filename, os.path.join("rasters", filename))
+        # os.rename(filename, os.path.join("rasters", filename))
         st.success("##### Downloaded raster at {}m scale in {} seconds".format(resolution, np.round((time.time()-startTime), 2)))
     else:
         st.error("#### Fire exceeds total request size")

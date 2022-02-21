@@ -160,77 +160,77 @@ if mapFireSubmit:
         preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
 
         loadRaster([30, 60, 90, 120, 150], fireID, combined, fireGeometry)
-        st.write(os.listdir("rasters"))
-        rasterToCsv("rasters", fireID)
+        st.write(os.listdir(), os.listdir("rasters"))
+        # rasterToCsv("rasters/{}.tif".format(fireID))
     else: # access session_state variables
         preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
 
 
-    with st.container():
-        tempMessage.empty()
-        df = pd.read_csv("rasters/{}.csv".format(fireID))
-        # st.write(df.head(), df.shape)
-
-        m = fmap.Map(add_google_map=False)   # initialize folium Map
-        add_legend(map=m,
-                   legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
-                                        ["None"]+burn_viz["palette"]+["None"]+nlcd_viz["palette"])))
-
-        m.addLayer(preFireL8, l8_viz, "Pre-Fire L8")
-        m.addLayer(postFireL8, l8_viz, "Post-Fire L8")
-
-        m.addLayer(combined.clip(fireGeometry), burn_viz, "Burn Severity")
-        m.addLayer(combined.clip(fireGeometry), nlcd_viz, "Land Cover")
-
-        # m.add_local_tile(source="rasters/{}.tif".format(fireID),
-        #                   band=8,
-        #                   palette="Reds",
-        #                   vmin=1,   # comment out to show entire raster with bbox
-        #                   vmax=5,
-        #                   nodata=0,
-        #                   layer_name="Local Tif")
-
-
-        lon, lat = fireGeometry.centroid().getInfo()["coordinates"]
-        m.setCenter(lon, lat, zoom=10)
-        m.add_layer_control()
-        chart_1, chart_2 = altChart(df)
-
-        emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.5,1])
-        with col_7:
-            m.to_streamlit(height=700, width=600, scrolling=True)
-
-        st.altair_chart(chart_1)
-        st.altair_chart(chart_2)
-
-        st.markdown(
-            """
-        |  | Vegetation Growth | Unburned | Low | Moderate | High | Predicted Total | Precision |
-        | --- | --- | --- | --- | --- | --- | --- | --- |
-        | **Vegetation Growth** | blah | blah | blah | blah | blah | blah | blah |
-        | **Unburned** | blah | blah | blah | blah | blah | blah | blah |
-        | **Low** | blah | blah | blah | blah | blah | blah | blah |
-        | **Moderate** | blah | blah | blah | blah | blah | blah | blah |
-        | **High** | blah | blah | blah | blah | blah | blah | blah |
-        | **Actual Total** | blah | blah | blah | blah | blah | blah | blah |
-        | **Recall** | blah | blah | blah | blah | blah | blah | blah |
-        """
-        )
-
-
-        st.markdown(
-            """
-        | Class | Precision | Recall | Accuracy |
-        | --- | --- | --- | --- |
-        | **Vegetation Growth** | blah | blah | blah |
-        | **Unburned** | blah | blah | blah |
-        | **Low** | blah | blah | blah |
-        | **Moderate** | blah | blah | blah |
-        | **High** | blah | blah | blah |
-        """
-        )
-
-    st.write("Runtime: {} seconds".format(np.round((time.time()-startTime), 2)))
+    # with st.container():
+    #     tempMessage.empty()
+    #     df = pd.read_csv("rasters/{}.csv".format(fireID))
+    #     # st.write(df.head(), df.shape)
+    #
+    #     m = fmap.Map(add_google_map=False)   # initialize folium Map
+    #     add_legend(map=m,
+    #                legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
+    #                                     ["None"]+burn_viz["palette"]+["None"]+nlcd_viz["palette"])))
+    #
+    #     m.addLayer(preFireL8, l8_viz, "Pre-Fire L8")
+    #     m.addLayer(postFireL8, l8_viz, "Post-Fire L8")
+    #
+    #     m.addLayer(combined.clip(fireGeometry), burn_viz, "Burn Severity")
+    #     m.addLayer(combined.clip(fireGeometry), nlcd_viz, "Land Cover")
+    #
+    #     # m.add_local_tile(source="rasters/{}.tif".format(fireID),
+    #     #                   band=8,
+    #     #                   palette="Reds",
+    #     #                   vmin=1,   # comment out to show entire raster with bbox
+    #     #                   vmax=5,
+    #     #                   nodata=0,
+    #     #                   layer_name="Local Tif")
+    #
+    #
+    #     lon, lat = fireGeometry.centroid().getInfo()["coordinates"]
+    #     m.setCenter(lon, lat, zoom=10)
+    #     m.add_layer_control()
+    #     chart_1, chart_2 = altChart(df)
+    #
+    #     emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.5,1])
+    #     with col_7:
+    #         m.to_streamlit(height=700, width=600, scrolling=True)
+    #
+    #     st.altair_chart(chart_1)
+    #     st.altair_chart(chart_2)
+    #
+    #     st.markdown(
+    #         """
+    #     |  | Vegetation Growth | Unburned | Low | Moderate | High | Predicted Total | Precision |
+    #     | --- | --- | --- | --- | --- | --- | --- | --- |
+    #     | **Vegetation Growth** | blah | blah | blah | blah | blah | blah | blah |
+    #     | **Unburned** | blah | blah | blah | blah | blah | blah | blah |
+    #     | **Low** | blah | blah | blah | blah | blah | blah | blah |
+    #     | **Moderate** | blah | blah | blah | blah | blah | blah | blah |
+    #     | **High** | blah | blah | blah | blah | blah | blah | blah |
+    #     | **Actual Total** | blah | blah | blah | blah | blah | blah | blah |
+    #     | **Recall** | blah | blah | blah | blah | blah | blah | blah |
+    #     """
+    #     )
+    #
+    #
+    #     st.markdown(
+    #         """
+    #     | Class | Precision | Recall | Accuracy |
+    #     | --- | --- | --- | --- |
+    #     | **Vegetation Growth** | blah | blah | blah |
+    #     | **Unburned** | blah | blah | blah |
+    #     | **Low** | blah | blah | blah |
+    #     | **Moderate** | blah | blah | blah |
+    #     | **High** | blah | blah | blah |
+    #     """
+    #     )
+    #
+    # st.write("Runtime: {} seconds".format(np.round((time.time()-startTime), 2)))
 
 
 footer="""<style>

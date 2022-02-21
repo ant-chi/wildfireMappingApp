@@ -205,7 +205,7 @@ def loadRaster(imgScale, fireID, image, geometry, path="rasters"):
         st.error("#### Fire exceeds total request size")
 
 
-def rasterToCsv(dir, fireID):
+def rasterToCsv(path):
     colNames = ['SR_B1','SR_B2','SR_B3','SR_B4','SR_B5','SR_B6','SR_B7',
                 'burnSeverity','dNBR','NDVI','elevation','pr','rmax','rmin',
                 'sph','srad','th','tmmn','tmmx','vs','erc','eto','bi','fm100',
@@ -215,7 +215,7 @@ def rasterToCsv(dir, fireID):
     floatCols = colNames[11:-3]
     colNames = {index+1:value for index, value in enumerate(colNames)}
 
-    path = os.path.join(dir, "{}.tif".format(fireID))
+    # path = os.path.join(dir, "{}.tif".format(fireID))
 
     # Open raster and store band data with dict
     img, data = rio.open(path), {}

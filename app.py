@@ -22,6 +22,12 @@ st.set_page_config(layout="wide", page_title="INSERT TITLE", page_icon=":earth_a
 
 # initialize EE + load and cache data
 # ee.Initialize()
+try:
+    ee.Initialize()
+except Exception as e:
+    ee.Authenticate()
+    ee.Initialize()
+    
 df = loadData()
 
 # initialize session states

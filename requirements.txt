@@ -10,6 +10,7 @@ streamlit-bokeh-events
 scikit-learn
 altair==4.1.0
 pandas
+rasterio
 # leafmap
 # geemap
 git+https://github.com/giswqs/leafmap

@@ -183,14 +183,15 @@ def prepData(fireGPD):
     return [preFireImage, postFireImage, combined, fireGeometry]
 
 
-def loadRaster(imgScale, fireID, image, geometry, path="rasters"):
+def loadRaster(imgScale, fireID, image, geometry):
     startTime = time.time()
+    filename = "{}.tif".format(fireID)
     numTries = len(imgScale)
     success = False
     for i in range(numTries):
         try:
             geemap.ee_export_image(ee_object=image,
-                                   filename=os.path.join(path, "{}.tif".format(fireID)),
+                                   filename=filename,
                                    scale=imgScale[i],
                                    region=geometry)
             success = True
@@ -200,6 +201,7 @@ def loadRaster(imgScale, fireID, image, geometry, path="rasters"):
             continue
 
     if success:
+        os.rename(filename, os.path.join("rasters", filename))
         st.success("##### Downloaded raster at {}m scale in {} seconds".format(resolution, np.round((time.time()-startTime), 2)))
     else:
         st.error("#### Fire exceeds total request size")

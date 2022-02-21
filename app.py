@@ -22,14 +22,6 @@ st.set_page_config(layout="wide", page_title="INSERT TITLE", page_icon=":earth_a
 
 # initialize EE + load and cache data
 geemap.ee_initialize()
-# ee.data.authenticateViaPrivateKey(privateKey="1//01v7gqt-fQTgFCgYIARAAGAESNwF-L9IrWQKQXC3_HCtuM7JDYE3Wl-R5fHmJ7SklC0o4XmjBg0DzGlFNfRVpJACgVjQF9Ibpfys")
-
-# ee.Initialize()
-# try:
-#     ee.Initialize()
-# except Exception as e:
-#     ee.Authenticate()
-#     ee.Initialize()
 
 df = loadData()
 
@@ -43,10 +35,10 @@ if "eeObjects" not in st.session_state:
 
 
 if not os.path.exists("rasters"):
-    print("Created rasters directory")
+    st.write("##### Created rasters directory")
     os.mkdir("rasters")
 
-print(os.listdir())
+st.write(os.listdir())
 
 # non rescaled l8
 l8_viz = {"bands": ["SR_B7", "SR_B5", "SR_B3"],
@@ -168,6 +160,7 @@ if mapFireSubmit:
         preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
 
         loadRaster([30, 60, 90, 120, 150], fireID, combined, fireGeometry)
+        st.write(os.listdir("rasters"))
         rasterToCsv("rasters", fireID)
     else: # access session_state variables
         preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]

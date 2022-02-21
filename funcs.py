@@ -287,7 +287,7 @@ def add_legend(map, legend_dict=None, opacity=1.0):
     return map.get_root().add_child(macro)
 
 
-def plotLandCover(data):
+def altChart(data):
     bsMap = {1: "Vegetation Growth", 2: "Unburned", 3: "Low", 4: "Moderate", 5: "High"}
     lcMap = {1: "Other", 2: "Developed", 3: "Forest", 4: "Shrub", 5: "Grassland", 6: "Agriculture"}
 
@@ -317,9 +317,10 @@ def plotLandCover(data):
 
     bsChart = alt.Chart(bsPivot
                 ).mark_bar(
-                ).encode(x=alt.X("Burn Severity:O", sort=list(bsMap.values())),
-                         y="Percentage:Q",
+                ).encode(x="Percentage:Q",
+                         y=alt.X("Burn Severity:O", sort=list(bsMap.values())),
                          color=alt.Color("Burn Severity",
+                                         legend=None,
                                          scale=alt.Scale(domain=list(bsMap.values()),
                                                          range=["rgb(112,108,30)", "rgb(78,157,92)",
                                                                 "rgb(255,247,11)", "rgb(255,100,27)",
@@ -328,9 +329,10 @@ def plotLandCover(data):
 
     lcChart = alt.Chart(lcPivot
                 ).mark_bar(
-                ).encode(x=alt.X("Land Cover:O", sort=list(lcMap.values())),
-                         y="Percentage:Q",
+                ).encode(x="Percentage:Q",
+                         y=alt.X("Land Cover:O", sort=list(lcMap.values())),
                          color=alt.Color("Land Cover",
+                                         legend=None,
                                          scale=alt.Scale(domain=list(lcMap.values()),
                                                          range=["rgb(162,214,242)", "rgb(255,127,104)",
                                                                 "rgb(37,137,20)", "rgb(255,241,0)",

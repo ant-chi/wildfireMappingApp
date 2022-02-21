@@ -92,7 +92,7 @@ with st.expander("View data"):
     # col_4.write(altBaseLayer, use_container_width=True)
 
 
-#
+
 # st.markdown(
 #     """
 # |  | Vegetation Growth | Unburned | Low | Moderate | High | Predicted Total | Precision |
@@ -121,7 +121,7 @@ with st.expander("View data"):
 # | **Recall** | blah | blah |
 # """
 # )
-#
+
 # st.write(pd.DataFrame({"dog":[1,224.5, 1.6784, 0.98431]}).round(2))
 
 with st.form("Map Fire"):
@@ -145,7 +145,7 @@ if mapFireSubmit:
     tempMessage = st.empty()
 
     if idLst[currentIndex-1] != idLst[currentIndex] or len(idLst)==2:
-        tempMessage.write("#### Querying data")
+        tempMessage.write("#### Querying data...")
         for i in os.listdir("rasters"):
             os.remove(os.path.join("rasters", i))
 
@@ -189,7 +189,7 @@ if mapFireSubmit:
         lon, lat = fireGeometry.centroid().getInfo()["coordinates"]
         m.setCenter(lon, lat, zoom=10)
         m.add_layer_control()
-        chart_1, chart_2 = plotLandCover(df)
+        chart_1, chart_2 = altChart(df)
 
         emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.5,1])
         with col_7:
@@ -197,6 +197,33 @@ if mapFireSubmit:
 
         st.altair_chart(chart_1)
         st.altair_chart(chart_2)
+
+        st.markdown(
+            """
+        |  | Vegetation Growth | Unburned | Low | Moderate | High | Predicted Total | Precision |
+        | --- | --- | --- | --- | --- | --- | --- | --- |
+        | **Vegetation Growth** | blah | blah | blah | blah | blah | blah | blah |
+        | **Unburned** | blah | blah | blah | blah | blah | blah | blah |
+        | **Low** | blah | blah | blah | blah | blah | blah | blah |
+        | **Moderate** | blah | blah | blah | blah | blah | blah | blah |
+        | **High** | blah | blah | blah | blah | blah | blah | blah |
+        | **Actual Total** | blah | blah | blah | blah | blah | blah | blah |
+        | **Recall** | blah | blah | blah | blah | blah | blah | blah |
+        """
+        )
+
+
+        st.markdown(
+            """
+        | Class | Precision | Recall | Accuracy |
+        | --- | --- | --- | --- |
+        | **Vegetation Growth** | blah | blah | blah |
+        | **Unburned** | blah | blah | blah |
+        | **Low** | blah | blah | blah |
+        | **Moderate** | blah | blah | blah |
+        | **High** | blah | blah | blah |
+        """
+        )
 
     st.write("Runtime: {} seconds".format(np.round((time.time()-startTime), 2)))
 

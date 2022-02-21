@@ -172,8 +172,8 @@ if mapFireSubmit:
         files = []
         for r, d, f in os.walk(os.getcwd()):
             for file in f:
-                if '.tif' in file:
-                    files.append(os.path.join(r, file))
+                # if '.tif' in file:
+                files.append(os.path.join(r, file))
 
         for f in files:
             # print(f)

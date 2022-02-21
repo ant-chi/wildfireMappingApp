@@ -21,13 +21,16 @@ from funcs import *
 st.set_page_config(layout="wide", page_title="INSERT TITLE", page_icon=":earth_americas:")
 
 # initialize EE + load and cache data
+geemap.ee_initialize()
+# ee.data.authenticateViaPrivateKey(privateKey="1//01v7gqt-fQTgFCgYIARAAGAESNwF-L9IrWQKQXC3_HCtuM7JDYE3Wl-R5fHmJ7SklC0o4XmjBg0DzGlFNfRVpJACgVjQF9Ibpfys")
+
 # ee.Initialize()
-try:
-    ee.Initialize()
-except Exception as e:
-    ee.Authenticate()
-    ee.Initialize()
-    
+# try:
+#     ee.Initialize()
+# except Exception as e:
+#     ee.Authenticate()
+#     ee.Initialize()
+
 df = loadData()
 
 # initialize session states

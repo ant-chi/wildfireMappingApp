@@ -35,7 +35,7 @@ if "eeObjects" not in st.session_state:
 
 
 if not os.path.exists("rasters"):
-    st.write("##### Created rasters directory")
+    st.write("##### Created rasters directory") ##
     os.mkdir("rasters")
 
 st.write(os.listdir())
@@ -152,7 +152,7 @@ if mapFireSubmit:
         tempMessage.write("#### Querying data...")
         for i in os.listdir("rasters"):
             os.remove(os.path.join("rasters", i))
-
+        st.write(os.listdir())
         # preFireL8, postFireL8, combined, fireGeometry = prepData(dfSubset[dfSubset["ID"]==fireID])
         # st.session_state["eeObjects"] = [preFireL8, postFireL8, combined, fireGeometry]
 

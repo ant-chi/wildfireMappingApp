@@ -43,7 +43,10 @@ if "eeObjects" not in st.session_state:
 
 
 if not os.path.exists("rasters"):
+    print("Created rasters directory")
     os.mkdir("rasters")
+
+print(os.listdir())
 
 # non rescaled l8
 l8_viz = {"bands": ["SR_B7", "SR_B5", "SR_B3"],

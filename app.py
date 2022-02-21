@@ -39,7 +39,7 @@ if not os.path.exists("rasters"):
     os.mkdir("rasters")
 
 files = []
-for r, d, f in os.walk(path):
+for r, d, f in os.walk(os.getcwd()):
     for file in f:
         if '.txt' in file:
             files.append(os.path.join(r, file))
@@ -170,9 +170,9 @@ if mapFireSubmit:
         loadRaster([30, 60, 90, 120, 150], fireID, combined, fireGeometry)
 
         files = []
-        for r, d, f in os.walk(path):
+        for r, d, f in os.walk(os.getcwd()):
             for file in f:
-                if '.txt' in file:
+                if '.tif' in file:
                     files.append(os.path.join(r, file))
 
         for f in files:

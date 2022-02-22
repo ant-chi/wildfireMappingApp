@@ -35,9 +35,9 @@ if "eeObjects" not in st.session_state:
     st.session_state["eeObjects"] = None      # stores necessary EE objects when data is queried
 
 
-if not os.path.exists("rasters"):
-    st.write("##### Created rasters directory") ##
-    os.mkdir("rasters")
+# if not os.path.exists("rasters"):
+#     st.write("##### Created rasters directory") ##
+#     os.mkdir("rasters")
 
 # files = []
 # for r, d, f in os.walk(os.getcwd()):
@@ -131,8 +131,10 @@ if mapFireSubmit:
     if idLst[currentIndex-1] != idLst[currentIndex] or len(idLst)==2:
         tempMessage.write("#### Querying data...")
         # for i in os.listdir("rasters"):
-        for i in os.listdir("rasters"):
-            os.remove(os.path.join("rasters", i))
+        #     os.remove(os.path.join("rasters", i))
+        for i in os.listdir():
+            if os.path.splitext(i)[1] in [".tif", ".csv", ".xml"]:
+                os.remove(i)
         # st.write(os.listdir())
         # preFireL8, postFireL8, combined, fireGeometry = prepData(dfSubset[dfSubset["ID"]==fireID])
         # st.session_state["eeObjects"] = [preFireL8, postFireL8, combined, fireGeometry]
@@ -153,10 +155,12 @@ if mapFireSubmit:
         for f in files:
             st.write(f)
 
-        shutil.move(fileName, os.path.join("rasters", fileName))
-        st.write(os.listdir("rasters"), os.listdir())
-        rasterToCsv("rasters/{}.tif".format(fireID))
-        st.write(os.listdir("rasters"), os.listdir())
+        # shutil.move(fileName, os.path.join("rasters", fileName))
+        # st.write(os.listdir("rasters"), os.listdir())
+        st.write(os.listdir())
+        rasterToCsv("{}.tif".format(fireID))
+        st.write(os.listdir())
+        # st.write(os.listdir("rasters"), os.listdir())
 
         # files = []
         # for r, d, f in os.walk(os.getcwd()):

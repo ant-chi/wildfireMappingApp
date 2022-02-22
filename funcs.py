@@ -185,15 +185,15 @@ def prepData(fireGPD):
     return [preFireImage, postFireImage, combined, fireGeometry]
 
 
-def loadRaster(imgScale, fireID, image, geometry):
+def loadRaster(imgScale, fileName, image, geometry):
     startTime = time.time()
-    filename = "{}.tif".format(fireID)
+    # filename = "{}.tif".format(fireID)
     numTries = len(imgScale)
     success = False
     for i in range(numTries):
         try:
             geemap.ee_export_image(ee_object=image,
-                                   filename=filename,
+                                   filename=fileName,
                                    scale=imgScale[i],
                                    region=geometry)
             success = True

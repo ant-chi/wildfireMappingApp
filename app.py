@@ -158,7 +158,12 @@ if mapFireSubmit:
         # shutil.move(fileName, os.path.join("rasters", fileName))
         # st.write(os.listdir("rasters"), os.listdir())
         st.write(os.listdir())
-        rasterToCsv("{}.tif".format(fireID))
+        
+        geemap.ee_export_image(ee_object=combined,
+                               filename=fileName,
+                               scale=30,
+                               region=fireGeometry)
+        # rasterToCsv("{}.tif".format(fireID))
         st.write(os.listdir())
         # st.write(os.listdir("rasters"), os.listdir())
 

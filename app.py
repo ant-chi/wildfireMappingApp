@@ -252,8 +252,8 @@ if mapFireSubmit:
     #     with col_7:
     #         m.to_streamlit(height=700, width=600, scrolling=True)
     #
-        st.altair_chart(chart_1)
-        st.altair_chart(chart_2)
+        # st.altair_chart(chart_1)
+        # st.altair_chart(chart_2)
     #
     #     st.markdown(
     #         """

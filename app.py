@@ -35,17 +35,21 @@ if "eeObjects" not in st.session_state:
     st.session_state["eeObjects"] = None      # stores necessary EE objects when data is queried
 
 
+st.write(os.getcwd() + "\n" +
+        os.path.abspath("42543.tif") + "\n" +
+      os.path.basename("42543.tif"))
+
 # if not os.path.exists("rasters"):
 #     st.write("##### Created rasters directory") ##
 #     os.mkdir("rasters")
 
-# files = []
-# for r, d, f in os.walk(os.getcwd()):
-#     for file in f:
-#         files.append(os.path.join(r, file))
-#
-# for f in files:
-#     st.write(f)
+files = []
+for r, d, f in os.walk(os.getcwd()):
+    for file in f:
+        files.append(os.path.join(r, file))
+
+for f in files:
+    st.write(f)
 
 st.write(os.listdir())
 
@@ -132,39 +136,41 @@ if mapFireSubmit:
         tempMessage.write("#### Querying data...")
         # for i in os.listdir("rasters"):
         #     os.remove(os.path.join("rasters", i))
+
         for i in os.listdir():
             if os.path.splitext(i)[1] in [".tif", ".csv", ".xml"]:
                 os.remove(i)
+
         # st.write(os.listdir())
         # preFireL8, postFireL8, combined, fireGeometry = prepData(dfSubset[dfSubset["ID"]==fireID])
         # st.session_state["eeObjects"] = [preFireL8, postFireL8, combined, fireGeometry]
 
         st.session_state["eeObjects"] = prepData(dfSubset[dfSubset["ID"]==fireID])
         preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
-        st.write(fireID, combined.bandNames().size().getInfo())
+        # st.write(fireID, combined.bandNames().size().getInfo())
         fileName = "{}.tif".format(fireID)
-        st.write("## loadRaster")
+        # st.write("## loadRaster")
         loadRaster([30, 60, 90, 120, 150], fileName, combined, fireGeometry)
 
-        files = []
-        for r, d, f in os.walk(os.getcwd()):
-            for file in f:
-                # if '.tif' in file:
-                files.append(os.path.join(r, file))
-
-        for f in files:
-            st.write(f)
+        # files = []
+        # for r, d, f in os.walk(os.getcwd()):
+        #     for file in f:
+        #         # if '.tif' in file:
+        #         files.append(os.path.join(r, file))
+        #
+        # for f in files:
+        #     st.write(f)
 
         # shutil.move(fileName, os.path.join("rasters", fileName))
         # st.write(os.listdir("rasters"), os.listdir())
-        st.write(os.listdir())
-        st.write("## export image")
-        geemap.ee_export_image(ee_object=combined,
-                               filename=fileName,
-                               scale=30,
-                               region=fireGeometry)
-        # rasterToCsv("{}.tif".format(fireID))
-        st.write(os.listdir())
+        # st.write(os.listdir())
+        # st.write("## export image")
+        # geemap.ee_export_image(ee_object=combined,
+        #                        filename=fileName,
+        #                        scale=30,
+        #                        region=fireGeometry)
+        rasterToCsv("{}.tif".format(fireID))
+        # st.write(os.listdir())
         # st.write(os.listdir("rasters"), os.listdir())
 
         # files = []
@@ -177,14 +183,14 @@ if mapFireSubmit:
         #     st.write(f)
 
 
-    # else: # access session_state variables
-    #     preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
+    else: # access session_state variables
+        preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
     #
     #
     with st.container():
         tempMessage.empty()
-    #     df = pd.read_csv("rasters/{}.csv".format(fireID))
-    #     # st.write(df.head(), df.shape)
+        df = pd.read_csv("{}.csv".format(fireID))
+        st.write(df.head(), df.shape)
     #
         m = fmap.Map(add_google_map=False)   # initialize folium Map
         add_legend(map=m,
@@ -209,14 +215,14 @@ if mapFireSubmit:
         lon, lat = fireGeometry.centroid().getInfo()["coordinates"]
         m.setCenter(lon, lat, zoom=10)
         m.add_layer_control()
-    #     chart_1, chart_2 = altChart(df)
+        chart_1, chart_2 = altChart(df)
     #
         emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.5,1])
         with col_7:
             m.to_streamlit(height=700, width=600, scrolling=True)
     #
-    #     st.altair_chart(chart_1)
-    #     st.altair_chart(chart_2)
+        st.altair_chart(chart_1)
+        st.altair_chart(chart_2)
     #
     #     st.markdown(
     #         """
@@ -272,7 +278,7 @@ text-align: center;
 }
 </style>
 <div class="footer">
-<p>Developed in <img src="https://avatars3.githubusercontent.com/u/45109972?s=400&v=4" width="25" height="25"> by <a style='display: block; text-align: center;' href="https://github.com/cashcountinchi/capstoneApp" target="_blank">Anthony Chi</a></p>
+<p>Developed in <img src="https://avatars3.githubusercontent.com/u/45109972?s=400&v=4" width="25" height="25"> by <a href="https://github.com/cashcountinchi/capstoneApp" target="_blank">Anthony Chi</a></p>
 </div>
 """
 st.markdown(footer,unsafe_allow_html=True)

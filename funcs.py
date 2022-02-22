@@ -230,7 +230,7 @@ def rasterToCsv(path):
     df = pd.DataFrame(data).dropna()
     df = df[df["burnSeverity"]>0].reset_index(drop=True).round(2)
     df[intCols] = df[intCols].astype(int)
-    df.to_csv("rasters/{}.csv".format(fireID), index=False)
+    df.to_csv("{}.csv".format(fireID), index=False)
 
 
 

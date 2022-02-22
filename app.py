@@ -41,11 +41,9 @@ if not os.path.exists("rasters"):
 files = []
 for r, d, f in os.walk(os.getcwd()):
     for file in f:
-        # if '.txt' in file:
         files.append(os.path.join(r, file))
 
 for f in files:
-    # print(f)
     st.write(f)
 
 # non rescaled l8
@@ -160,7 +158,7 @@ if mapFireSubmit:
         tempMessage.write("#### Querying data...")
         for i in os.listdir("rasters"):
             os.remove(os.path.join("rasters", i))
-        st.write(os.listdir())
+        # st.write(os.listdir())
         # preFireL8, postFireL8, combined, fireGeometry = prepData(dfSubset[dfSubset["ID"]==fireID])
         # st.session_state["eeObjects"] = [preFireL8, postFireL8, combined, fireGeometry]
 
@@ -169,6 +167,7 @@ if mapFireSubmit:
         st.write(fireID, combined.bandNames().size().getInfo())
         loadRaster([30, 60, 90, 120, 150], fireID, combined, fireGeometry)
 
+        rasterToCsv("{}.tif".format(fireID))
         files = []
         for r, d, f in os.walk(os.getcwd()):
             for file in f:
@@ -177,11 +176,10 @@ if mapFireSubmit:
 
         for f in files:
             st.write(f)
-        # rasterToCsv("rasters/{}.tif".format(fireID))
-    else: # access session_state variables
-        preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
-
-
+    # else: # access session_state variables
+    #     preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
+    #
+    #
     # with st.container():
     #     tempMessage.empty()
     #     df = pd.read_csv("rasters/{}.csv".format(fireID))

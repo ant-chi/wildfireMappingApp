@@ -13,6 +13,12 @@ import rasterio as rio
 from functools import reduce
 from operator import iconcat
 
+#
+import zipfile
+import requests
+import urllib.request
+
+
 
 
 def boundsBuffer(x, buffer=0):
@@ -185,6 +191,66 @@ def prepData(fireGPD):
     return [preFireImage, postFireImage, combined, fireGeometry]
 
 
+def ee_export_image(ee_object, filename, scale, region, crs=None):
+    """Exports an ee.Image as a GeoTIFF.
+
+    Args:
+        ee_object (object): The ee.Image to download.
+        filename (str): Output filename for the exported image.
+        scale (float, optional): A default scale to use for any bands that do not specify one; ignored if crs and crs_transform is specified. Defaults to None.
+        crs (str, optional): A default CRS string to use for any bands that do not explicitly specify one. Defaults to None.
+        region (object, optional): A polygon specifying a region to download; ignored if crs and crs_transform is specified. Defaults to None.
+        file_per_band (bool, optional): Whether to produce a different GeoTIFF per band. Defaults to False.
+    """
+
+    filename = os.path.abspath(filename)
+    basename = os.path.basename(filename)
+    name = os.path.splitext(basename)[0]
+    # filetype = os.path.splitext(basename)[1][1:].lower()
+    filename_zip = filename.replace(".tif", ".zip")
+
+    try:
+        print("Generating URL ...")
+        params = {"name": name,
+                  "filePerBand": False,
+                  "scale": scale,
+                  "region": region}
+
+        if crs is not None:
+            params["crs"] = crs
+
+        try:
+            url = ee_object.getDownloadURL(params)
+        except Exception as e:
+            print("An error occurred while downloading.")
+            print(e)
+            return
+        print(f"Downloading data from {url}\nPlease wait ...")
+        r = requests.get(url, stream=True)
+
+        if r.status_code != 200:
+            print("An error occurred while downloading.")
+            return
+
+        with open(filename_zip, "wb") as fd:
+            for chunk in r.iter_content(chunk_size=1024):
+                fd.write(chunk)
+
+    except Exception as e:
+        print("An error occurred while downloading.")
+        print(r.json()["error"]["message"])
+        return
+
+    try:
+        with zipfile.ZipFile(filename_zip) as z:
+            z.extractall(os.path.dirname(filename))
+        os.remove(filename_zip)
+        # return True #
+    except Exception as e:
+        print(e)
+        # return False #
+
+
 def loadRaster(imgScale, fileName, image, geometry):
     startTime = time.time()
     # filename = "{}.tif".format(fireID)
@@ -192,13 +258,19 @@ def loadRaster(imgScale, fileName, image, geometry):
     success = False
     for i in range(numTries):
         try:
-            geemap.ee_export_image(ee_object=image,
+            # geemap.ee_export_image(ee_object=image,
+            #                        filename=fileName,
+            #                        scale=imgScale[i],
+            #                        region=geometry)
+            ee_export_image(ee_object=image,
                                    filename=fileName,
                                    scale=imgScale[i],
                                    region=geometry)
-            success = True
-            resolution = imgScale[i]
-            break
+            if fileName in os.listdir():
+                success = True
+                resolution = imgScale[i]
+                break
+            # break
         except Exception:
             continue
 

@@ -38,13 +38,15 @@ if not os.path.exists("rasters"):
     st.write("##### Created rasters directory") ##
     os.mkdir("rasters")
 
-files = []
-for r, d, f in os.walk(os.getcwd()):
-    for file in f:
-        files.append(os.path.join(r, file))
+# files = []
+# for r, d, f in os.walk(os.getcwd()):
+#     for file in f:
+#         files.append(os.path.join(r, file))
+#
+# for f in files:
+#     st.write(f)
 
-for f in files:
-    st.write(f)
+st.write(os.listdir())
 
 # non rescaled l8
 l8_viz = {"bands": ["SR_B7", "SR_B5", "SR_B3"],
@@ -103,35 +105,6 @@ with st.expander("View data"):
 
 
 
-# st.markdown(
-#     """
-# |  | Vegetation Growth | Unburned | Low | Moderate | High | Predicted Total | Precision |
-# | --- | --- | --- | --- | --- | --- | --- | --- |
-# | **Vegetation Growth** | blah | blah | blah | blah | blah | blah | blah |
-# | **Unburned** | blah | blah | blah | blah | blah | blah | blah |
-# | **Low** | blah | blah | blah | blah | blah | blah | blah |
-# | **Moderate** | blah | blah | blah | blah | blah | blah | blah |
-# | **High** | blah | blah | blah | blah | blah | blah | blah |
-# | **Actual Total** | blah | blah | blah | blah | blah | blah | blah |
-# | **Recall** | blah | blah | blah | blah | blah | blah | blah |
-# """
-# )
-#
-#
-# st.markdown(
-#     """
-# | Class | Precision | Recall |
-# | --- | --- | --- |
-# | **Vegetation Growth** | blah | blah |
-# | **Unburned** | blah | blah |
-# | **Low** | blah | blah |
-# | **Moderate** | blah | blah |
-# | **High** | blah | blah |
-# | **Actual Total** | blah | blah |
-# | **Recall** | blah | blah |
-# """
-# )
-
 # st.write(pd.DataFrame({"dog":[1,224.5, 1.6784, 0.98431]}).round(2))
 
 with st.form("Map Fire"):
@@ -177,16 +150,18 @@ if mapFireSubmit:
         for f in files:
             st.write(f)
 
-        rasterToCsv("{}.tif".format(fireID))
-        
-        files = []
-        for r, d, f in os.walk(os.getcwd()):
-            for file in f:
-                # if '.tif' in file:
-                files.append(os.path.join(r, file))
+        # rasterToCsv("{}.tif".format(fireID))
 
-        for f in files:
-            st.write(f)
+        # files = []
+        # for r, d, f in os.walk(os.getcwd()):
+        #     for file in f:
+        #         # if '.tif' in file:
+        #         files.append(os.path.join(r, file))
+        #
+        # for f in files:
+        #     st.write(f)
+
+        
     # else: # access session_state variables
     #     preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
     #

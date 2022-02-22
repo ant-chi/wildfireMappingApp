@@ -185,7 +185,7 @@ def prepData(fireGPD):
 
 def loadRaster(imgScale, fireID, image, geometry):
     startTime = time.time()
-    filename = "{}.tif".format(fireID)
+    filename = "rasters/{}.tif".format(fireID)
     numTries = len(imgScale)
     success = False
     for i in range(numTries):

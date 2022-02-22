@@ -212,6 +212,7 @@ def rasterToCsv(path):
                 'sph','srad','th','tmmn','tmmx','vs','erc','eto','bi','fm100',
                 'fm1000','etr','vpd','percent_tree_cover','landCover','landCoverViz']
 
+    fireID = os.path.splitext(path)[0] ##
     intCols = colNames[:11] + colNames[-3:]
     floatCols = colNames[11:-3]
     colNames = {index+1:value for index, value in enumerate(colNames)}

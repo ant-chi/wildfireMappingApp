@@ -156,6 +156,7 @@ if mapFireSubmit:
 
     if idLst[currentIndex-1] != idLst[currentIndex] or len(idLst)==2:
         tempMessage.write("#### Querying data...")
+        # for i in os.listdir("rasters"):
         for i in os.listdir("rasters"):
             os.remove(os.path.join("rasters", i))
         # st.write(os.listdir())
@@ -175,8 +176,9 @@ if mapFireSubmit:
 
         for f in files:
             st.write(f)
-            
+
         rasterToCsv("{}.tif".format(fireID))
+        
         files = []
         for r, d, f in os.walk(os.getcwd()):
             for file in f:

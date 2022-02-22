@@ -12,7 +12,7 @@ import altair as alt
 import rasterio as rio
 from functools import reduce
 from operator import iconcat
-import shutil
+
 
 
 def boundsBuffer(x, buffer=0):
@@ -204,7 +204,6 @@ def loadRaster(imgScale, fireID, image, geometry):
 
     if success:
         st.success("##### Downloaded raster at {}m scale in {} seconds".format(resolution, np.round((time.time()-startTime), 2)))
-        shutil.move(filename, os.path.join("rasters", filename))
     else:
         st.error("#### Fire exceeds total request size")
 

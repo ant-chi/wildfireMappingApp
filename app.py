@@ -153,7 +153,7 @@ if mapFireSubmit:
         for f in files:
             st.write(f)
 
-        shutil.move(filename, os.path.join("rasters", filename))
+        shutil.move(fileName, os.path.join("rasters", fileName))
         st.write(os.listdir("rasters"))
         # rasterToCsv("{}.tif".format(fireID))
 

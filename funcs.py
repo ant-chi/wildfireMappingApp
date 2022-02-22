@@ -214,7 +214,8 @@ def rasterToCsv(path):
                 'sph','srad','th','tmmn','tmmx','vs','erc','eto','bi','fm100',
                 'fm1000','etr','vpd','percent_tree_cover','landCover','landCoverViz']
 
-    fireID = os.path.splitext(path)[0] ##
+    # fireID = os.path.splitext(path)[0] ##
+    savePath = path.replace(".tif", ".csv")
     intCols = colNames[:11] + colNames[-3:]
     floatCols = colNames[11:-3]
     colNames = {index+1:value for index, value in enumerate(colNames)}
@@ -230,7 +231,7 @@ def rasterToCsv(path):
     df = pd.DataFrame(data).dropna()
     df = df[df["burnSeverity"]>0].reset_index(drop=True).round(2)
     df[intCols] = df[intCols].astype(int)
-    df.to_csv("{}.csv".format(fireID), index=False)
+    df.to_csv(savePath, index=False)
 
 
 

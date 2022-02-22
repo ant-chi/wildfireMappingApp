@@ -150,7 +150,38 @@ if mapFireSubmit:
         # st.write(fireID, combined.bandNames().size().getInfo())
         fileName = "{}.tif".format(fireID)
         # st.write("## loadRaster")
-        loadRaster([30, 60, 90, 120, 150], fileName, combined, fireGeometry)
+        with st.container():
+            tempMessage.empty()
+
+            m = fmap.Map(add_google_map=False)   # initialize folium Map
+            add_legend(map=m,
+                       legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
+                                            ["None"]+burn_viz["palette"]+["None"]+nlcd_viz["palette"])))
+
+            m.addLayer(preFireL8, l8_viz, "Pre-Fire L8")
+            m.addLayer(postFireL8, l8_viz, "Post-Fire L8")
+
+            m.addLayer(combined.clip(fireGeometry), burn_viz, "Burn Severity")
+            m.addLayer(combined.clip(fireGeometry), nlcd_viz, "Land Cover")
+
+            # m.add_local_tile(source="{}.tif".format(fireID),
+            #                   band=8,
+            #                   palette="Reds",
+            #                   vmin=1,   # comment out to show entire raster with bbox
+            #                   vmax=5,
+            #                   nodata=0,
+            #                   layer_name="Local Tif")
+
+
+            lon, lat = fireGeometry.centroid().getInfo()["coordinates"]
+            m.setCenter(lon, lat, zoom=10)
+            m.add_layer_control()
+
+            emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.5,1])
+            with col_7:
+                m.to_streamlit(height=700, width=600, scrolling=True)
+
+        # loadRaster([30, 60, 90, 120, 150], fileName, combined, fireGeometry)
 
         # files = []
         # for r, d, f in os.walk(os.getcwd()):
@@ -169,7 +200,7 @@ if mapFireSubmit:
         #                        filename=fileName,
         #                        scale=30,
         #                        region=fireGeometry)
-        rasterToCsv("{}.tif".format(fireID))
+        # rasterToCsv("{}.tif".format(fireID))
         # st.write(os.listdir())
         # st.write(os.listdir("rasters"), os.listdir())
 
@@ -187,39 +218,39 @@ if mapFireSubmit:
         preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
     #
     #
-    with st.container():
-        tempMessage.empty()
-        df = pd.read_csv("{}.csv".format(fireID))
-        st.write(df.head(), df.shape)
+    # with st.container():
+    #     tempMessage.empty()
+    #     df = pd.read_csv("{}.csv".format(fireID))
+    #     st.write(df.head(), df.shape)
+    # #
+    #     m = fmap.Map(add_google_map=False)   # initialize folium Map
+    #     add_legend(map=m,
+    #                legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
+    #                                     ["None"]+burn_viz["palette"]+["None"]+nlcd_viz["palette"])))
     #
-        m = fmap.Map(add_google_map=False)   # initialize folium Map
-        add_legend(map=m,
-                   legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
-                                        ["None"]+burn_viz["palette"]+["None"]+nlcd_viz["palette"])))
-
-        m.addLayer(preFireL8, l8_viz, "Pre-Fire L8")
-        m.addLayer(postFireL8, l8_viz, "Post-Fire L8")
-    #
-        m.addLayer(combined.clip(fireGeometry), burn_viz, "Burn Severity")
-        m.addLayer(combined.clip(fireGeometry), nlcd_viz, "Land Cover")
-    #
-        m.add_local_tile(source="{}.tif".format(fireID),
-                          band=8,
-                          palette="Reds",
-                          vmin=1,   # comment out to show entire raster with bbox
-                          vmax=5,
-                          nodata=0,
-                          layer_name="Local Tif")
-    #
-    #
-        lon, lat = fireGeometry.centroid().getInfo()["coordinates"]
-        m.setCenter(lon, lat, zoom=10)
-        m.add_layer_control()
-        chart_1, chart_2 = altChart(df)
-    #
-        emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.5,1])
-        with col_7:
-            m.to_streamlit(height=700, width=600, scrolling=True)
+    #     m.addLayer(preFireL8, l8_viz, "Pre-Fire L8")
+    #     m.addLayer(postFireL8, l8_viz, "Post-Fire L8")
+    # #
+    #     m.addLayer(combined.clip(fireGeometry), burn_viz, "Burn Severity")
+    #     m.addLayer(combined.clip(fireGeometry), nlcd_viz, "Land Cover")
+    # #
+    #     m.add_local_tile(source="{}.tif".format(fireID),
+    #                       band=8,
+    #                       palette="Reds",
+    #                       vmin=1,   # comment out to show entire raster with bbox
+    #                       vmax=5,
+    #                       nodata=0,
+    #                       layer_name="Local Tif")
+    # #
+    # #
+    #     lon, lat = fireGeometry.centroid().getInfo()["coordinates"]
+    #     m.setCenter(lon, lat, zoom=10)
+    #     m.add_layer_control()
+    #     chart_1, chart_2 = altChart(df)
+    # #
+    #     emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.5,1])
+    #     with col_7:
+    #         m.to_streamlit(height=700, width=600, scrolling=True)
     #
         st.altair_chart(chart_1)
         st.altair_chart(chart_2)

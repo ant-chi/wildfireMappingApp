@@ -167,6 +167,15 @@ if mapFireSubmit:
         st.write(fireID, combined.bandNames().size().getInfo())
         loadRaster([30, 60, 90, 120, 150], fireID, combined, fireGeometry)
 
+        files = []
+        for r, d, f in os.walk(os.getcwd()):
+            for file in f:
+                # if '.tif' in file:
+                files.append(os.path.join(r, file))
+
+        for f in files:
+            st.write(f)
+            
         rasterToCsv("{}.tif".format(fireID))
         files = []
         for r, d, f in os.walk(os.getcwd()):

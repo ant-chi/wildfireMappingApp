@@ -206,7 +206,6 @@ def ee_export_image(ee_object, filename, scale, region, crs=None):
     filename = os.path.abspath(filename)
     basename = os.path.basename(filename)
     name = os.path.splitext(basename)[0]
-    # filetype = os.path.splitext(basename)[1][1:].lower()
     filename_zip = filename.replace(".tif", ".zip")
 
     try:
@@ -245,23 +244,16 @@ def ee_export_image(ee_object, filename, scale, region, crs=None):
         with zipfile.ZipFile(filename_zip) as z:
             z.extractall(os.path.dirname(filename))
         os.remove(filename_zip)
-        # return True #
     except Exception as e:
         print(e)
-        # return False #
 
 
 def loadRaster(imgScale, fileName, image, geometry):
     startTime = time.time()
-    # filename = "{}.tif".format(fireID)
     numTries = len(imgScale)
     success = False
     for i in range(numTries):
         try:
-            # geemap.ee_export_image(ee_object=image,
-            #                        filename=fileName,
-            #                        scale=imgScale[i],
-            #                        region=geometry)
             ee_export_image(ee_object=image,
                                    filename=fileName,
                                    scale=imgScale[i],
@@ -270,7 +262,6 @@ def loadRaster(imgScale, fileName, image, geometry):
                 success = True
                 resolution = imgScale[i]
                 break
-            # break
         except Exception:
             continue
 
@@ -286,13 +277,10 @@ def rasterToCsv(path):
                 'sph','srad','th','tmmn','tmmx','vs','erc','eto','bi','fm100',
                 'fm1000','etr','vpd','percent_tree_cover','landCover','landCoverViz']
 
-    # fireID = os.path.splitext(path)[0] ##
     savePath = path.replace(".tif", ".csv")
     intCols = colNames[:11] + colNames[-3:]
     floatCols = colNames[11:-3]
     colNames = {index+1:value for index, value in enumerate(colNames)}
-
-    # path = os.path.join(dir, "{}.tif".format(fireID))
 
     # Open raster and store band data with dict
     img, data = rio.open(path), {}
@@ -304,8 +292,6 @@ def rasterToCsv(path):
     df = df[df["burnSeverity"]>0].reset_index(drop=True).round(2)
     df[intCols] = df[intCols].astype(int)
     df.to_csv(savePath, index=False)
-
-
 
 
 # ############

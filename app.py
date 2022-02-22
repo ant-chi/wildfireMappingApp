@@ -10,7 +10,6 @@ import time
 # from ipyleaflet import LegendControl
 # import altair as alt
 import folium
-# import shutil
 # import rasterio as rio
 # from rasterio.plot import show
 
@@ -35,23 +34,19 @@ if "eeObjects" not in st.session_state:
     st.session_state["eeObjects"] = None      # stores necessary EE objects when data is queried
 
 
-st.write(os.getcwd() + "\n" +
-        os.path.abspath("42543.tif") + "\n" +
-      os.path.basename("42543.tif"))
-
 # if not os.path.exists("rasters"):
 #     st.write("##### Created rasters directory") ##
 #     os.mkdir("rasters")
 
-files = []
-for r, d, f in os.walk(os.getcwd()):
-    for file in f:
-        files.append(os.path.join(r, file))
-
-for f in files:
-    st.write(f)
-
-st.write(sorted(os.listdir()))
+# files = []
+# for r, d, f in os.walk(os.getcwd()):
+#     for file in f:
+#         files.append(os.path.join(r, file))
+#
+# for f in files:
+#     st.write(f)
+#
+# st.write(sorted(os.listdir()))
 
 # non rescaled l8
 l8_viz = {"bands": ["SR_B7", "SR_B5", "SR_B3"],
@@ -171,9 +166,9 @@ if mapFireSubmit:
         #     emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.5,1])
         #     with col_7:
         #         m.to_streamlit(height=700, width=600, scrolling=True)
-        st.write("### 1")
+        # st.write("### 1")
         loadRaster([30, 60, 90, 120, 150], fileName, combined, fireGeometry)
-        st.write(sorted(os.listdir()))
+        # st.write(sorted(os.listdir()))
         # files = []
         # for r, d, f in os.walk(os.getcwd()):
         #     for file in f:
@@ -191,9 +186,9 @@ if mapFireSubmit:
         #                        filename=fileName,
         #                        scale=30,
         #                        region=fireGeometry)
-        st.write("### 2")
+        # st.write("### 2")
         rasterToCsv(fileName)
-        st.write(sorted(os.listdir()))
+        # st.write(sorted(os.listdir()))
         # st.write(os.listdir("rasters"), os.listdir())
 
         # files = []
@@ -210,71 +205,71 @@ if mapFireSubmit:
         preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
 
 
-    # with st.container():
-    #     tempMessage.empty()
-    #     df = pd.read_csv("{}.csv".format(fireID))
-    #     st.write(df.head(), df.shape)
-    #
-    #     m = fmap.Map(add_google_map=False)   # initialize folium Map
-    #     add_legend(map=m,
-    #                legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
-    #                                     ["None"]+burn_viz["palette"]+["None"]+nlcd_viz["palette"])))
-    #
-    #     m.addLayer(preFireL8, l8_viz, "Pre-Fire L8")
-    #     m.addLayer(postFireL8, l8_viz, "Post-Fire L8")
-    # #
-    #     m.addLayer(combined.clip(fireGeometry), burn_viz, "Burn Severity")
-    #     m.addLayer(combined.clip(fireGeometry), nlcd_viz, "Land Cover")
-    # #
-    #     m.add_local_tile(source="{}.tif".format(fireID),
-    #                       band=8,
-    #                       palette="Reds",
-    #                       vmin=1,   # comment out to show entire raster with bbox
-    #                       vmax=5,
-    #                       nodata=0,
-    #                       layer_name="Local Tif")
-    # #
-    # #
-    #     lon, lat = fireGeometry.centroid().getInfo()["coordinates"]
-    #     m.setCenter(lon, lat, zoom=10)
-    #     m.add_layer_control()
-    #     chart_1, chart_2 = altChart(df)
-    # #
-    #     emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.5,1])
-    #     with col_7:
-    #         m.to_streamlit(height=700, width=600, scrolling=True)
-    #
-    #     st.altair_chart(chart_1)
-    #     st.altair_chart(chart_2)
+    with st.container():
+        tempMessage.empty()
+        df = pd.read_csv("{}.csv".format(fireID))
+        st.write(df.head(), df.shape)
 
-    #     st.markdown(
-    #         """
-    #     |  | Vegetation Growth | Unburned | Low | Moderate | High | Predicted Total | Precision |
-    #     | --- | --- | --- | --- | --- | --- | --- | --- |
-    #     | **Vegetation Growth** | blah | blah | blah | blah | blah | blah | blah |
-    #     | **Unburned** | blah | blah | blah | blah | blah | blah | blah |
-    #     | **Low** | blah | blah | blah | blah | blah | blah | blah |
-    #     | **Moderate** | blah | blah | blah | blah | blah | blah | blah |
-    #     | **High** | blah | blah | blah | blah | blah | blah | blah |
-    #     | **Actual Total** | blah | blah | blah | blah | blah | blah | blah |
-    #     | **Recall** | blah | blah | blah | blah | blah | blah | blah |
-    #     """
-    #     )
-    #
-    #
-    #     st.markdown(
-    #         """
-    #     | Class | Precision | Recall | Accuracy |
-    #     | --- | --- | --- | --- |
-    #     | **Vegetation Growth** | blah | blah | blah |
-    #     | **Unburned** | blah | blah | blah |
-    #     | **Low** | blah | blah | blah |
-    #     | **Moderate** | blah | blah | blah |
-    #     | **High** | blah | blah | blah |
-    #     """
-    #     )
-    #
-    # st.write("Runtime: {} seconds".format(np.round((time.time()-startTime), 2)))
+        m = fmap.Map(add_google_map=False)   # initialize folium Map
+        add_legend(map=m,
+                   legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
+                                        ["None"]+burn_viz["palette"]+["None"]+nlcd_viz["palette"])))
+
+        m.addLayer(preFireL8, l8_viz, "Pre-Fire L8")
+        m.addLayer(postFireL8, l8_viz, "Post-Fire L8")
+
+        m.addLayer(combined.clip(fireGeometry), burn_viz, "Burn Severity")
+        m.addLayer(combined.clip(fireGeometry), nlcd_viz, "Land Cover")
+
+        m.add_local_tile(source="{}.tif".format(fireID),
+                          band=8,
+                          palette="Reds",
+                          vmin=1,   # comment out to show entire raster with bbox
+                          vmax=5,
+                          nodata=0,
+                          layer_name="Local Tif")
+
+
+        lon, lat = fireGeometry.centroid().getInfo()["coordinates"]
+        m.setCenter(lon, lat, zoom=10)
+        m.add_layer_control()
+        chart_1, chart_2 = altChart(df)
+
+        emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.5,1])
+        with col_7:
+            m.to_streamlit(height=700, width=600, scrolling=True)
+
+        st.altair_chart(chart_1)
+        st.altair_chart(chart_2)
+
+        st.markdown(
+            """
+        |  | Vegetation Growth | Unburned | Low | Moderate | High | Predicted Total | Precision |
+        | --- | --- | --- | --- | --- | --- | --- | --- |
+        | **Vegetation Growth** | blah | blah | blah | blah | blah | blah | blah |
+        | **Unburned** | blah | blah | blah | blah | blah | blah | blah |
+        | **Low** | blah | blah | blah | blah | blah | blah | blah |
+        | **Moderate** | blah | blah | blah | blah | blah | blah | blah |
+        | **High** | blah | blah | blah | blah | blah | blah | blah |
+        | **Actual Total** | blah | blah | blah | blah | blah | blah | blah |
+        | **Recall** | blah | blah | blah | blah | blah | blah | blah |
+        """
+        )
+
+
+        st.markdown(
+            """
+        | Class | Precision | Recall | Accuracy |
+        | --- | --- | --- | --- |
+        | **Vegetation Growth** | blah | blah | blah |
+        | **Unburned** | blah | blah | blah |
+        | **Low** | blah | blah | blah |
+        | **Moderate** | blah | blah | blah |
+        | **High** | blah | blah | blah |
+        """
+        )
+
+    st.write("Runtime: {} seconds".format(np.round((time.time()-startTime), 2)))
 
 
 footer="""<style>
@@ -304,4 +299,4 @@ text-align: center;
 <p>Developed in <img src="https://avatars3.githubusercontent.com/u/45109972?s=400&v=4" width="25" height="25"> by <a href="https://github.com/cashcountinchi/capstoneApp" target="_blank">Anthony Chi</a></p>
 </div>
 """
-st.markdown(footer,unsafe_allow_html=True)
+st.markdown(footer, unsafe_allow_html=True)

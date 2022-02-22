@@ -10,7 +10,7 @@ import time
 # from ipyleaflet import LegendControl
 # import altair as alt
 import folium
-import shutil
+# import shutil
 # import rasterio as rio
 # from rasterio.plot import show
 
@@ -142,9 +142,9 @@ if mapFireSubmit:
         st.session_state["eeObjects"] = prepData(dfSubset[dfSubset["ID"]==fireID])
         preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
         st.write(fireID, combined.bandNames().size().getInfo())
-        loadRaster([30, 60, 90, 120, 150], fireID, combined, fireGeometry)
         fileName = "{}.tif".format(fireID)
-
+        st.write("## loadRaster")
+        loadRaster([30, 60, 90, 120, 150], fileName, combined, fireGeometry)
 
         files = []
         for r, d, f in os.walk(os.getcwd()):
@@ -158,7 +158,7 @@ if mapFireSubmit:
         # shutil.move(fileName, os.path.join("rasters", fileName))
         # st.write(os.listdir("rasters"), os.listdir())
         st.write(os.listdir())
-
+        st.write("## export image")
         geemap.ee_export_image(ee_object=combined,
                                filename=fileName,
                                scale=30,

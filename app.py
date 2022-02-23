@@ -7,11 +7,7 @@ import geemap
 import geemap.foliumap as fmap
 import os
 import time
-# from ipyleaflet import LegendControl
-# import altair as alt
 import folium
-# import rasterio as rio
-# from rasterio.plot import show
 
 from funcs import *
 
@@ -34,22 +30,7 @@ if "currentIndex" not in st.session_state:
 if "eeObjects" not in st.session_state:
     st.session_state["eeObjects"] = None      # stores necessary EE objects when data is queried
 
-
-# if not os.path.exists("rasters"):
-#     st.write("##### Created rasters directory") ##
-#     os.mkdir("rasters")
-
-# files = []
-# for r, d, f in os.walk(os.getcwd()):
-#     for file in f:
-#         files.append(os.path.join(r, file))
-#
-# for f in files:
-#     st.write(f)
-#
-# st.write(sorted(os.listdir()))
-
-# non rescaled l8
+# Viz params
 l8_viz = {"bands": ["SR_B7", "SR_B5", "SR_B3"],
           "gamma": [1.1, 1.1, 1],
           "min": 1000, "max": 25000}
@@ -208,7 +189,7 @@ if mapFireSubmit:
     with st.container():
         tempMessage.empty()
         df = pd.read_csv("{}.csv".format(fireID))
-        st.write(df.shape, df)
+        # st.write(df.shape, df)
 
         labels = df["burnSeverity"]
         modelData = prepData(df[['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7',
@@ -218,7 +199,7 @@ if mapFireSubmit:
         confusionMatrix, df_2 = modelMetrics(df)
 
 
-        m = fmap.Map(add_google_map=False)   # initialize folium Map
+        m = fmap.Map(add_google_map=False)   # initialize geemap.foliumMap
         add_legend(map=m,
                    legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
                                         ["None"]+burn_viz["palette"]+["None"]+nlcd_viz["palette"])))
@@ -248,7 +229,7 @@ if mapFireSubmit:
             m.to_streamlit(height=700, width=600, scrolling=True)
 
 
-        st.write("#### Accuracy: {}".format(np.round(100*np.mean(df["burnSeverity"]==df["Prediction"]), 2)))
+        st.write("#### Accuracy: {}%".format(np.round(100*np.mean(df["burnSeverity"]==df["Prediction"]), 2)))
 
         st.write(confusionMatrix.to_markdown())
         st.write(df_2.to_markdown())

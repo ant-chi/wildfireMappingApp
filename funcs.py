@@ -436,26 +436,34 @@ def altChart(data):
 
     bsChart = alt.Chart(bsPivot
                 ).mark_bar(
-                ).encode(x="Percentage:Q",
-                         y=alt.X("Burn Severity:O", sort=list(bsMap.values())),
+                ).encode(x=alt.X("Percentage:Q",
+                                 title=" "),
+                         y=alt.y("Burn Severity:O",
+                                 title=" ",
+                                 sort=list(bsMap.values())),
                          color=alt.Color("Burn Severity",
                                          legend=None,
                                          scale=alt.Scale(domain=list(bsMap.values()),
                                                          range=["rgb(112,108,30)", "rgb(78,157,92)",
                                                                 "rgb(255,247,11)", "rgb(255,100,27)",
                                                                 "rgb(164,31,214)"])),
-                         tooltip=["Burn Severity", "Percentage"])
+                         tooltip=["Burn Severity", "Percentage"]
+                ).properties(title="Burn Severity (%)")
 
     lcChart = alt.Chart(lcPivot
                 ).mark_bar(
-                ).encode(x="Percentage:Q",
-                         y=alt.X("Land Cover:O", sort=list(lcMap.values())),
+                ).encode(x=alt.X("Percentage:Q",
+                         title=" "),
+                         y=alt.X("Land Cover:O",
+                                 title=" ",
+                                 sort=list(lcMap.values())),
                          color=alt.Color("Land Cover",
                                          legend=None,
                                          scale=alt.Scale(domain=list(lcMap.values()),
                                                          range=["rgb(162,214,242)", "rgb(255,127,104)",
                                                                 "rgb(37,137,20)", "rgb(255,241,0)",
                                                                 "rgb(123,216,96)", "rgb(185,155,86)"])),
-                         tooltip=["Land Cover", "Percentage"])
+                         tooltip=["Land Cover", "Percentage"]
+                ).properties(title="Land Cover (%)")
 
     return bsChart, lcChart

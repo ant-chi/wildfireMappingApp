@@ -11,6 +11,7 @@ scikit-learn
 altair==4.1.0
 pandas
 rasterio
+tabulate
 # leafmap
 # geemap
 git+https://github.com/giswqs/leafmap

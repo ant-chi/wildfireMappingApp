@@ -24,6 +24,7 @@ st.set_page_config(layout="wide", page_title="INSERT TITLE", page_icon=":earth_a
 geemap.ee_initialize()
 
 df = loadData()
+models = loadModels()
 
 # initialize session states
 if "idLst" not in st.session_state:
@@ -105,8 +106,6 @@ with st.expander("View data"):
 
 
 
-# st.write(pd.DataFrame({"dog":[1,224.5, 1.6784, 0.98431]}).round(2))
-
 with st.form("Map Fire"):
     col_5, emptyCol_2, col_6 = st.columns([5, 1, 5])
     selectBoxOptions = formatSelectBoxOptions(dfSubset)
@@ -115,22 +114,23 @@ with st.form("Map Fire"):
                           options=list(selectBoxOptions.keys()),
                           format_func=lambda x: selectBoxOptions[x])
 
-    model = col_6.selectbox(label="Select Supervised Classifier",
-                         options=["Random Forests", "Blah", "Blah Blah"],
-                         on_change=None)
+    modelKey = col_6.selectbox(label="Select Supervised Classifier",
+                               options=list(models.keys()),
+                               on_change=None)
 
     mapFireSubmit = st.form_submit_button("Map Fire")
 
+
 if mapFireSubmit:
     startTime = time.time()
+    model = models[modelKey]
+
     # Tracks if fireID has changed. If not, data will be accessed from previous session state
     idLst, currentIndex = updateIdState(fireID)
     tempMessage = st.empty()
 
     if idLst[currentIndex-1] != idLst[currentIndex] or len(idLst)==2:
         tempMessage.write("#### Querying data...")
-        # for i in os.listdir("rasters"):
-        #     os.remove(os.path.join("rasters", i))
 
         for i in os.listdir():
             if os.path.splitext(i)[1] in [".tif", ".csv", ".xml"]:
@@ -140,7 +140,7 @@ if mapFireSubmit:
         # preFireL8, postFireL8, combined, fireGeometry = prepData(dfSubset[dfSubset["ID"]==fireID])
         # st.session_state["eeObjects"] = [preFireL8, postFireL8, combined, fireGeometry]
 
-        st.session_state["eeObjects"] = prepData(dfSubset[dfSubset["ID"]==fireID])
+        st.session_state["eeObjects"] = prepImages(dfSubset[dfSubset["ID"]==fireID])
         preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
         # st.write(fireID, combined.bandNames().size().getInfo())
         fileName = "{}.tif".format(fireID)
@@ -208,7 +208,15 @@ if mapFireSubmit:
     with st.container():
         tempMessage.empty()
         df = pd.read_csv("{}.csv".format(fireID))
-        st.write(df.head(), df.shape)
+        st.write(df.shape, df)
+
+        labels = df["burnSeverity"]
+        modelData = prepData(df[['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7',
+                                 'NDVI','elevation', 'percent_tree_cover', 'landCover']])
+
+        df["Prediction"] = model.predict(modelData)
+        confusionMatrix, df_2 = modelMetrics(df)
+
 
         m = fmap.Map(add_google_map=False)   # initialize folium Map
         add_legend(map=m,
@@ -224,10 +232,10 @@ if mapFireSubmit:
         m.add_local_tile(source="{}.tif".format(fireID),
                           band=8,
                           palette="Reds",
-                          vmin=1,   # comment out to show entire raster with bbox
+                          vmin=1,   # comment out to show entire raster
                           vmax=5,
                           nodata=0,
-                          layer_name="Local Tif")
+                          layer_name="Local Raster")
 
 
         lon, lat = fireGeometry.centroid().getInfo()["coordinates"]
@@ -239,37 +247,44 @@ if mapFireSubmit:
         with col_7:
             m.to_streamlit(height=700, width=600, scrolling=True)
 
+
+        st.write("#### Accuracy: {}".format(np.round(100*np.mean(df["burnSeverity"]==df["Prediction"]), 2)))
+
+        st.write(confusionMatrix.to_markdown())
+        st.write(df_2.to_markdown())
+
         st.altair_chart(chart_1)
         st.altair_chart(chart_2)
 
-        st.markdown(
-            """
-        |  | Vegetation Growth | Unburned | Low | Moderate | High | Predicted Total | Precision |
-        | --- | --- | --- | --- | --- | --- | --- | --- |
-        | **Vegetation Growth** | blah | blah | blah | blah | blah | blah | blah |
-        | **Unburned** | blah | blah | blah | blah | blah | blah | blah |
-        | **Low** | blah | blah | blah | blah | blah | blah | blah |
-        | **Moderate** | blah | blah | blah | blah | blah | blah | blah |
-        | **High** | blah | blah | blah | blah | blah | blah | blah |
-        | **Actual Total** | blah | blah | blah | blah | blah | blah | blah |
-        | **Recall** | blah | blah | blah | blah | blah | blah | blah |
-        """
-        )
 
+        # st.markdown(
+        #     """
+        # |  | Vegetation Growth | Unburned | Low | Moderate | High | Predicted Total | Precision |
+        # | --- | --- | --- | --- | --- | --- | --- | --- |
+        # | **Vegetation Growth** | blah | blah | blah | blah | blah | blah | blah |
+        # | **Unburned** | blah | blah | blah | blah | blah | blah | blah |
+        # | **Low** | blah | blah | blah | blah | blah | blah | blah |
+        # | **Moderate** | blah | blah | blah | blah | blah | blah | blah |
+        # | **High** | blah | blah | blah | blah | blah | blah | blah |
+        # | **Actual Total** | blah | blah | blah | blah | blah | blah | blah |
+        # | **Recall** | blah | blah | blah | blah | blah | blah | blah |
+        # """
+        # )
+        #
+        #
+        # st.markdown(
+        #     """
+        # | Class | Precision | Recall | Accuracy |
+        # | --- | --- | --- | --- |
+        # | **Vegetation Growth** | blah | blah | blah |
+        # | **Unburned** | blah | blah | blah |
+        # | **Low** | blah | blah | blah |
+        # | **Moderate** | blah | blah | blah |
+        # | **High** | blah | blah | blah |
+        # """
+        # )
 
-        st.markdown(
-            """
-        | Class | Precision | Recall | Accuracy |
-        | --- | --- | --- | --- |
-        | **Vegetation Growth** | blah | blah | blah |
-        | **Unburned** | blah | blah | blah |
-        | **Low** | blah | blah | blah |
-        | **Moderate** | blah | blah | blah |
-        | **High** | blah | blah | blah |
-        """
-        )
-
-    st.write("Runtime: {} seconds".format(np.round((time.time()-startTime), 2)))
+    st.write("Total Runtime: {} seconds".format(np.round((time.time()-startTime), 2)))
 
 
 footer="""<style>

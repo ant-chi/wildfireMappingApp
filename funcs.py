@@ -13,12 +13,78 @@ import rasterio as rio
 from functools import reduce
 from operator import iconcat
 
-#
+import pickle
+from sklearn import preprocessing
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+import tabulate
+
 import zipfile
 import requests
 import urllib.request
 
 
+@st.cache(allow_output_mutation=True, suppress_st_warning=True)
+def loadData():
+    fires = gpd.read_file("data/norCalFires.geojson")
+    fires["Start"] = pd.DatetimeIndex(fires["Start"])
+    fires["End"] = pd.DatetimeIndex(fires["End"])
+
+    fires["geometry"] = fires["geometry"].apply(lambda x: boundsBuffer(x.bounds))
+    return fires
+
+
+@st.cache(allow_output_mutation=True, suppress_st_warning=True)
+def loadModels():
+    models = dict()
+
+    models["Logistic Regression"] = pickle.load(open("models/logistic_regression.sav", 'rb'))
+    models["Multi-Layer Perceptron"] = pickle.load(open("models/mlp.sav", 'rb'))
+    # models["Random Forest"] = pickle.load(open("models/mlp.sav", 'rb'))
+    # models["Extra Trees"] = pickle.load(open("models/mlp.sav", 'rb'))
+    return models
+
+
+def prepData(data):
+    scaler = preprocessing.StandardScaler().fit(data.values)
+    return scaler.transform(data)
+
+def modelMetrics(data):
+    # bsMap = {1: "Vegetation Growth", 2: "Unburned", 3: "Low", 4: "Moderate", 5: "High"}
+    confusionMatrix = data.pivot_table(index="Prediction",
+                                       columns="burnSeverity",
+                                       values="SR_B1",
+                                       aggfunc=len).fillna(0).sort_index()#.astype(int)
+
+    values = confusionMatrix.values
+    recall, precision = [], []
+    for i in range(0,5):
+        recallCol = values[:,i:i+1].T[0]
+        precisionCol = values[i:i+1,:][0]
+
+        recallNum, recallDenom = recallCol[i], sum(recallCol)
+        precisionNum, precisionDenom = precisionCol[i], sum(precisionCol)
+
+        recall.append(np.round(100*(recallNum/recallDenom), 2))
+        precision.append(np.round(100*(precisionNum/precisionDenom), 2))
+
+    confusionMatrix["Precision"] = precision
+    confusionMatrix.loc[6,:] = recall+[None]
+
+    bsClasses = ["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]
+    confusionMatrix.index = bsClasses+["Recall"]
+    confusionMatrix.columns = bsClasses+["Precision"]
+    # confusionMatrix.index = [bsMap[i] for i in confusionMatrix.index]+["Recall"]
+    # confusionMatrix.columns = [bsMap[i] for i in confusionMatrix.columns]+["Precision"]
+
+    # confusionMatrix.columns.name="Actual"
+    confusionMatrix.index.name = "Predicted"
+
+    df_2 = pd.DataFrame({"Precision": precision, "Recall": recall})
+    df_2.index = bsClasses
+    df_2.index.name = "Burn Severity"
+
+    return confusionMatrix, df_2
 
 
 def boundsBuffer(x, buffer=0):
@@ -50,16 +116,6 @@ def convertDate(date):
         date = date.getInfo()["value"]
 
     return datetime.utcfromtimestamp(date/1000).strftime("%Y-%m-%d")# %H:%M:%S')
-
-
-@st.cache(allow_output_mutation=True, suppress_st_warning=True)
-def loadData():
-    fires = gpd.read_file("data/norCalFires.geojson")
-    fires["Start"] = pd.DatetimeIndex(fires["Start"])
-    fires["End"] = pd.DatetimeIndex(fires["End"])
-
-    # fires["geometry"] = fires["geometry"].apply(lambda x: boundsBuffer(x.bounds))
-    return fires
 
 
 def updateIdState(fireID):
@@ -95,7 +151,7 @@ def subsetFires(data, startYear, endYear, sizeClass=None, counties=None):
     return subset.sort_values(by="Fire").reset_index(drop=True)
 
 
-def prepData(fireGPD):
+def prepImages(fireGPD):
     fire_EE = geemap.gdf_to_ee(fireGPD).first()
     # year = fireGPD["Start"].year ###
     startDate, endDate = ee.Date(fire_EE.get("Start")), ee.Date(fire_EE.get("End"))
@@ -255,9 +311,9 @@ def loadRaster(imgScale, fileName, image, geometry):
     for i in range(numTries):
         try:
             ee_export_image(ee_object=image,
-                                   filename=fileName,
-                                   scale=imgScale[i],
-                                   region=geometry)
+                            filename=fileName,
+                            scale=imgScale[i],
+                            region=geometry)
             if fileName in os.listdir():
                 success = True
                 resolution = imgScale[i]

@@ -438,7 +438,7 @@ def altChart(data):
                 ).mark_bar(
                 ).encode(x=alt.X("Percentage:Q",
                                  title=" "),
-                         y=alt.y("Burn Severity:O",
+                         y=alt.Y("Burn Severity:O",
                                  title=" ",
                                  sort=list(bsMap.values())),
                          color=alt.Color("Burn Severity",
@@ -454,7 +454,7 @@ def altChart(data):
                 ).mark_bar(
                 ).encode(x=alt.X("Percentage:Q",
                          title=" "),
-                         y=alt.X("Land Cover:O",
+                         y=alt.Y("Land Cover:O",
                                  title=" ",
                                  sort=list(lcMap.values())),
                          color=alt.Color("Land Cover",

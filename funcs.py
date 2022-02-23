@@ -49,6 +49,7 @@ def prepData(data):
     scaler = preprocessing.StandardScaler().fit(data.values)
     return scaler.transform(data)
 
+
 def modelMetrics(data):
     # bsMap = {1: "Vegetation Growth", 2: "Unburned", 3: "Low", 4: "Moderate", 5: "High"}
     confusionMatrix = data.pivot_table(index="Prediction",
@@ -153,7 +154,6 @@ def subsetFires(data, startYear, endYear, sizeClass=None, counties=None):
 
 def prepImages(fireGPD):
     fire_EE = geemap.gdf_to_ee(fireGPD).first()
-    # year = fireGPD["Start"].year ###
     startDate, endDate = ee.Date(fire_EE.get("Start")), ee.Date(fire_EE.get("End"))
     fireGeometry = ee.Geometry(fire_EE.geometry())
 

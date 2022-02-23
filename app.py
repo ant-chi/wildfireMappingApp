@@ -53,7 +53,7 @@ with st.container():
                                               options=[i for i in range(2013, 2022)],
                                               value=[2015, 2021],
                                               on_change=None)
-    # change options
+    # update options
     with col_2:
         sizeClasses = st.multiselect(label="Size Class",
                                      options=["<F", "F", "G",
@@ -123,7 +123,7 @@ if mapFireSubmit:
 
         st.session_state["eeObjects"] = prepImages(dfSubset[dfSubset["ID"]==fireID])
         preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
-        # st.write(fireID, combined.bandNames().size().getInfo())
+
         fileName = "{}.tif".format(fireID)
 
         # with st.container():
@@ -189,7 +189,6 @@ if mapFireSubmit:
     with st.container():
         tempMessage.empty()
         df = pd.read_csv("{}.csv".format(fireID))
-        # st.write(df.shape, df)
 
         labels = df["burnSeverity"]
         modelData = prepData(df[['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7',

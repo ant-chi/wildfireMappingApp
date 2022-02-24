@@ -41,8 +41,8 @@ def loadModels():
 
     models["Logistic Regression"] = pickle.load(open("models/logistic_regression.sav", 'rb'))
     models["Multi-Layer Perceptron"] = pickle.load(open("models/mlp.sav", 'rb'))
-    models["Random Forest"] = joblib.load(open("models/randomForest.joblib", 'rb'))
-    models["Extra Trees"] = joblib.load(open("models/extraTrees.joblib", 'rb'))
+    # models["Random Forest"] = joblib.load(open("models/randomForest.joblib", 'rb'))
+    # models["Extra Trees"] = joblib.load(open("models/extraTrees.joblib", 'rb'))
     return models
 
 
@@ -50,7 +50,7 @@ def prepData(data):
     scaler = preprocessing.StandardScaler().fit(data.values)
     return scaler.transform(data)
 
-
+### NEED TO REWRITE ###
 def modelMetrics(data):
     # bsMap = {1: "Vegetation Growth", 2: "Unburned", 3: "Low", 4: "Moderate", 5: "High"}
     confusionMatrix = data.pivot_table(index="Prediction",

@@ -2,5 +2,5 @@
 __pycache__
 .DS_Store
 
-tifs/*.tif
+*.tif
 data/California_Fire_Perimeters_(all).geojson

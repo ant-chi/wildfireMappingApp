@@ -12,11 +12,9 @@ import folium
 from funcs import *
 
 
-########## App starts here ##########
-
 st.set_page_config(layout="wide", page_title="INSERT TITLE", page_icon=":earth_americas:")
 
-# initialize EE + load and cache data
+# initialize EE + cache data and models
 geemap.ee_initialize()
 
 df = loadData()
@@ -35,6 +33,10 @@ l8_viz = {"bands": ["SR_B7", "SR_B5", "SR_B3"],
           "gamma": [1.1, 1.1, 1],
           "min": 1000, "max": 25000}
 
+l8_rgb = {"bands": ["SR_B4", "SR_B3", "SR_B2"],
+          "gamma": [1.1, 1.1, 1],
+          "min": 1000, "max": 25000}
+
 burn_viz = {"bands": ["burnSeverity"],
             "palette": ["706c1e", "4e9d5c", "fff70b", "ff641b", "a41fd6"],
             "min": 1, "max": 5}
@@ -43,34 +45,43 @@ nlcd_viz = {"bands": ["landCoverViz"],
             "palette": ["A2D6F2", "FF7F68", "258914", "FFF100", "7CD860", "B99B56"],
             "min": 1, "max": 6}
 
+monthMap = {1: "January", 2: "February", 3: "March", 4: "April", 5: "May", 6: "June", 7: "July",
+            8: "August", 9: "September", 10: "October", 11: "November", 12: "December"}
+
 
 with st.container():
     st.write("## Filter Fires")
     col_1, emptyCol_1, col_2 = st.columns([5, 1, 5])
+    col_3, emptyCol_2, col_4 = st.columns([5, 1, 5])
 
     with col_1:
         startYear, endYear = st.select_slider(label="Year",
                                               options=[i for i in range(2013, 2022)],
-                                              value=[2015, 2021],
+                                              value=[2013, 2021],
                                               on_change=None)
-    # update options
     with col_2:
+        endMonths = st.multiselect(label="Fire Containment Month",
+                                   options=list(monthMap.keys()),
+                                   format_func=lambda x: monthMap[x],
+                                   default=[6, 7, 8, 9])
+    with col_3:
+        counties = st.multiselect(label="County",
+                                  options=sorted(df["County"].unique()),
+                                  default=["Humboldt", "Lassen", "Mendocino",
+                                           "Modoc", "Shasta", "Siskiyou"],
+                                  on_change=None)
+
+    with col_4:
         sizeClasses = st.multiselect(label="Size Class",
-                                     options=["<F", "F", "G",
+                                     options=["E", "F", "G",
                                               "H", "I", "J+"],
                                      default=["H", "I", "J+"],
                                      on_change=None)
 
 
-    counties = st.multiselect(label="County",
-                              options=sorted(df["County"].unique()),
-                              default=["Humboldt", "Lassen", "Shasta", "Siskiyou"],
-                              on_change=None)
-
-
-dfSubset = subsetFires(df, startYear, endYear, sizeClasses, counties)
+dfSubset = subsetFires(df, startYear, endYear, endMonths, sizeClasses, counties)
 st.write("#### {} fires in query".format(dfSubset.shape[0]))
-# queriedFires = st.expander("View data")
+
 with st.expander("View data"):
     # col_3, col_4 = st.columns(2)
     temp = dfSubset[["Fire", "County", "Start", "End", "Acres", "Size Class"]]
@@ -89,7 +100,7 @@ with st.expander("View data"):
 
 with st.form("Map Fire"):
     col_5, emptyCol_2, col_6 = st.columns([5, 1, 5])
-    selectBoxOptions = formatSelectBoxOptions(dfSubset)
+    selectBoxOptions = formatFireSelectBox(dfSubset)
 
     fireID = col_5.selectbox(label="Select Fire to Map",
                           options=list(selectBoxOptions.keys()),
@@ -117,7 +128,6 @@ if mapFireSubmit:
             if os.path.splitext(i)[1] in [".tif", ".csv", ".xml"]:
                 os.remove(i)
 
-        # st.write(os.listdir())
         # preFireL8, postFireL8, combined, fireGeometry = prepData(dfSubset[dfSubset["ID"]==fireID])
         # st.session_state["eeObjects"] = [preFireL8, postFireL8, combined, fireGeometry]
 
@@ -126,96 +136,47 @@ if mapFireSubmit:
 
         fileName = "{}.tif".format(fireID)
 
-        # with st.container():
-        #     tempMessage.empty()
-        #
-        #     m = fmap.Map(add_google_map=False)   # initialize folium Map
-        #     add_legend(map=m,
-        #                legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
-        #                                     ["None"]+burn_viz["palette"]+["None"]+nlcd_viz["palette"])))
-        #
-        #     m.addLayer(preFireL8, l8_viz, "Pre-Fire L8")
-        #     m.addLayer(postFireL8, l8_viz, "Post-Fire L8")
-        #
-        #     m.addLayer(combined.clip(fireGeometry), burn_viz, "Burn Severity")
-        #     m.addLayer(combined.clip(fireGeometry), nlcd_viz, "Land Cover")
-        #
-        #     lon, lat = fireGeometry.centroid().getInfo()["coordinates"]
-        #     m.setCenter(lon, lat, zoom=10)
-        #     m.add_layer_control()
-        #
-        #     emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.5,1])
-        #     with col_7:
-        #         m.to_streamlit(height=700, width=600, scrolling=True)
-        # st.write("### 1")
+        # Download raster from EE and convert to csv
         loadRaster([30, 60, 90, 120, 150], fileName, combined, fireGeometry)
-        # st.write(sorted(os.listdir()))
-        # files = []
-        # for r, d, f in os.walk(os.getcwd()):
-        #     for file in f:
-        #         # if '.tif' in file:
-        #         files.append(os.path.join(r, file))
-        #
-        # for f in files:
-        #     st.write(f)
-
-        # shutil.move(fileName, os.path.join("rasters", fileName))
-        # st.write(os.listdir("rasters"), os.listdir())
-        # st.write(os.listdir())
-        # st.write("## export image")
-        # geemap.ee_export_image(ee_object=combined,
-        #                        filename=fileName,
-        #                        scale=30,
-        #                        region=fireGeometry)
-        # st.write("### 2")
         rasterToCsv(fileName)
-        # st.write(sorted(os.listdir()))
-        # st.write(os.listdir("rasters"), os.listdir())
-
-        # files = []
-        # for r, d, f in os.walk(os.getcwd()):
-        #     for file in f:
-        #         # if '.tif' in file:
-        #         files.append(os.path.join(r, file))
-        #
-        # for f in files:
-        #     st.write(f)
-
 
     else: # access session_state variables
         preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
 
 
     with st.container():
-        tempMessage.empty()
-        df = pd.read_csv("{}.csv".format(fireID))
+        # tempMessage.empty()
+        tempMessage.write("#### Running model and rendering map...")
 
+        df = pd.read_csv("{}.csv".format(fireID))
         labels = df["burnSeverity"]
         modelData = prepData(df[['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7',
                                  'NDVI','elevation', 'percent_tree_cover', 'landCover']])
 
         df["Prediction"] = model.predict(modelData)
-        confusionMatrix, df_2 = modelMetrics(df)
-
 
         m = fmap.Map(add_google_map=False)   # initialize geemap.foliumMap
         add_legend(map=m,
                    legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
                                         ["None"]+burn_viz["palette"]+["None"]+nlcd_viz["palette"])))
 
-        m.addLayer(preFireL8, l8_viz, "Pre-Fire L8")
-        m.addLayer(postFireL8, l8_viz, "Post-Fire L8")
+        m.addLayer(preFireL8, l8_rgb, "Pre-Fire RGB")
+        m.addLayer(postFireL8, l8_rgb, "Post-Fire RGB")
 
-        m.addLayer(combined.clip(fireGeometry), burn_viz, "Burn Severity")
+        m.addLayer(preFireL8, l8_viz, "Pre-Fire (753)")
+        m.addLayer(postFireL8, l8_viz, "Post-Fire (753)")
+
         m.addLayer(combined.clip(fireGeometry), nlcd_viz, "Land Cover")
+        m.addLayer(combined.clip(fireGeometry), burn_viz, "Burn Severity")
 
-        m.add_local_tile(source="{}.tif".format(fireID),
-                          band=8,
-                          palette="Reds",
-                          vmin=1,   # comment out to show entire raster
-                          vmax=5,
-                          nodata=0,
-                          layer_name="Local Raster")
+
+        # m.add_local_tile(source="{}.tif".format(fireID),
+        #                   band=8,
+        #                   palette="Reds",
+        #                   vmin=1,   # comment out to show entire raster
+        #                   vmax=5,
+        #                   nodata=0,
+        #                   layer_name="Local Raster")
 
 
         lon, lat = fireGeometry.centroid().getInfo()["coordinates"]
@@ -223,13 +184,15 @@ if mapFireSubmit:
         m.add_layer_control()
         chart_1, chart_2 = altChart(df)
 
-        emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.5,1])
+        emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.75,1])
         with col_7:
             m.to_streamlit(height=700, width=600, scrolling=True)
 
+        tempMessage.empty()
 
-        st.write("#### Accuracy: {}%".format(np.round(100*np.mean(df["burnSeverity"]==df["Prediction"]), 2)))
-
+        st.write("#### {} Accuracy: {}%".format(modelKey,
+                                                np.round(100*np.mean(df["burnSeverity"]==df["Prediction"]), 2)))
+        confusionMatrix, df_2 = modelMetrics(df)
         st.write(confusionMatrix.to_markdown())
         st.write(df_2.to_markdown())
 

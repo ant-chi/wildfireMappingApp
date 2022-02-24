@@ -14,6 +14,7 @@ from functools import reduce
 from operator import iconcat
 
 import pickle
+import joblib
 from sklearn import preprocessing
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -40,8 +41,8 @@ def loadModels():
 
     models["Logistic Regression"] = pickle.load(open("models/logistic_regression.sav", 'rb'))
     models["Multi-Layer Perceptron"] = pickle.load(open("models/mlp.sav", 'rb'))
-    # models["Random Forest"] = pickle.load(open("models/mlp.sav", 'rb'))
-    # models["Extra Trees"] = pickle.load(open("models/mlp.sav", 'rb'))
+    models["Random Forest"] = joblib.load(open("models/randomForest.joblib", 'rb'))
+    models["Extra Trees"] = joblib.load(open("models/extraTrees.joblib", 'rb'))
     return models
 
 
@@ -128,24 +129,31 @@ def updateIdState(fireID):
 def updateEE(preFireImage, postFireImage, combined, geometry):
     st.session_state["eeAssets"] = [preFireImage, postFireImage, combined, geometry]
 
-def formatSelectBoxOptions(data):
+def formatFireSelectBox(data):
     return {k: "{} ({})".format(v1, v2) for k, v1, v2 in data[["ID", "Fire", "Year"]].sort_values(by="Fire").values}
 
 
 
-def subsetFires(data, startYear, endYear, sizeClass=None, counties=None):
+def subsetFires(data, startYear, endYear, containedMonths, sizeClass, counties):
     if startYear == endYear:
         st.error("### Select valid time interval")
     else:
         subset = data[(data["Year"] >= startYear) & (data["Year"] < endYear)]
 
+    if len(containedMonths) == 0:
+        pass
+    else:
+        subset = subset[subset["Contained Month"].isin(containedMonths)]
+        if len(set([11,12,1,2]).intersection(set(containedMonths))) > 0:
+            st.warning("##### Results for fires in winter months can be inaccurate due to poor image quality from snow and seasonal vegetation loss.")
+
     if len(sizeClass) == 0:
-        st.warning("#### Size Class is not selected (Filter will not be applied)")
+        pass
     else:
         subset = subset[subset["Size Class"].isin(sizeClass)]
 
     if len(counties) == 0:
-        st.warning("#### County is not selected (Filter will not be applied)")
+        pass
     else:
         subset = subset[subset["County"].isin(counties)]
 
@@ -160,16 +168,14 @@ def prepImages(fireGPD):
     preFireImage = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2"
                     ).filterDate(startDate.advance(-60, "day"), startDate
                     ).filterBounds(fireGeometry
-                    ).sort("CLOUD_COVER", True
-                    ).limit(2
+                    ).filter(ee.Filter.lte("CLOUD_COVER", 10)
                     ).mosaic(
                     ).clip(fireGeometry)
 
     postFireImage = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2"
-                     ).filterDate(endDate, endDate.advance(60, "day")
+                     ).filterDate(endDate.advance(1, "day"), endDate.advance(60, "day")
                      ).filterBounds(fireGeometry
-                     ).sort("CLOUD_COVER", True
-                     ).limit(2
+                     ).filter(ee.Filter.lte("CLOUD_COVER", 15)
                      ).mosaic(
                      ).clip(fireGeometry)
 
@@ -247,11 +253,11 @@ def prepImages(fireGPD):
     return [preFireImage, postFireImage, combined, fireGeometry]
 
 
-def ee_export_image(ee_object, filename, scale, region, crs=None):
+def ee_export_image(image, filename, scale, region, crs=None):
     """Exports an ee.Image as a GeoTIFF.
 
     Args:
-        ee_object (object): The ee.Image to download.
+        image (object): The ee.Image to download.
         filename (str): Output filename for the exported image.
         scale (float, optional): A default scale to use for any bands that do not specify one; ignored if crs and crs_transform is specified. Defaults to None.
         crs (str, optional): A default CRS string to use for any bands that do not explicitly specify one. Defaults to None.
@@ -275,7 +281,7 @@ def ee_export_image(ee_object, filename, scale, region, crs=None):
             params["crs"] = crs
 
         try:
-            url = ee_object.getDownloadURL(params)
+            url = image.getDownloadURL(params)
         except Exception as e:
             print("An error occurred while downloading.")
             print(e)
@@ -305,12 +311,17 @@ def ee_export_image(ee_object, filename, scale, region, crs=None):
 
 
 def loadRaster(imgScale, fileName, image, geometry):
+    try:
+        image.bandNames().size().getInfo()
+    except Exception as e:
+        st.error("### No suitable Landsat images are available. Please try again with a different fire.")
+        return
     startTime = time.time()
     numTries = len(imgScale)
     success = False
     for i in range(numTries):
         try:
-            ee_export_image(ee_object=image,
+            ee_export_image(image=image,
                             filename=fileName,
                             scale=imgScale[i],
                             region=geometry)
@@ -324,7 +335,7 @@ def loadRaster(imgScale, fileName, image, geometry):
     if success:
         st.success("##### Downloaded raster at {}m scale in {} seconds".format(resolution, np.round((time.time()-startTime), 2)))
     else:
-        st.error("#### Fire exceeds total request size")
+        st.error("#### Fire exceeds total request size.")
 
 
 def rasterToCsv(path):

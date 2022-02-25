@@ -48,7 +48,7 @@ def loadModels():
     # models["Random Forest"] = joblib.load(open("models/randomForest.joblib", 'rb'))
     # models["Extra Trees"] = joblib.load(open("models/extraTrees.joblib", 'rb'))
     models["SVM"] = joblib.load(open("models/svc.pkl", "rb"))
-    # models["Boosted"] = joblib.load(open("models/svc.pkl", "rb"))
+    models["log_boost"] = joblib.load(open("models/log_boost.pkl", "rb"))
     return models
 
 
@@ -143,22 +143,16 @@ def subsetFires(data, startYear, endYear, containedMonths, sizeClass, counties):
     else:
         subset = data[(data["Year"] >= startYear) & (data["Year"] < endYear)]
 
-    if len(containedMonths) == 0:
-        pass
-    else:
+    if len(containedMonths) > 0:
         subset = subset[subset["Contained Month"].isin(containedMonths)]
         if len(set([11,12,1,2]).intersection(set(containedMonths))) > 0:
             st.warning("##### Results for fires in winter months are likely inaccurate/skewed due \
             to poor image quality from snow and seasonal vegetation loss.")
 
-    if len(sizeClass) == 0:
-        pass
-    else:
+    if len(sizeClass) > 0:
         subset = subset[subset["Size Class"].isin(sizeClass)]
 
-    if len(counties) == 0:
-        pass
-    else:
+    if len(counties) > 0:
         subset = subset[subset["County"].isin(counties)]
 
     return subset.sort_values(by="Fire").reset_index(drop=True)
@@ -238,6 +232,7 @@ def prepImages(fireGPD):
                        ).rename("NDVI"
                        ).multiply(1000)
 
+    # remove GRIDMET
     gridmet = ee.ImageCollection("IDAHO_EPSCOR/GRIDMET"
                ).filterBounds(fireGeometry
                ).filterDate(endDate.advance(-3, "day"), endDate
@@ -275,7 +270,7 @@ def ee_export_image(image, filename, scale, region, crs=None):
     filename_zip = filename.replace(".tif", ".zip")
 
     try:
-        print("Generating URL ...")
+        print("Generating URL...")
         params = {"name": name,
                   "filePerBand": False,
                   "scale": scale,
@@ -290,7 +285,7 @@ def ee_export_image(image, filename, scale, region, crs=None):
             print("An error occurred while downloading.")
             print(e)
             return
-        print(f"Downloading data from {url}\nPlease wait ...")
+        print(f"Downloading data from {url}\nPlease wait...")
         r = requests.get(url, stream=True)
 
         if r.status_code != 200:
@@ -374,9 +369,11 @@ def rasterToCsv(path):
 
 
 def predictedImage(predictions, dim):
-    cmap = colors.ListedColormap(['#706C1E', '#4E9D5C', '#FFF70B', '#FF641B', '#A41FD6'])
+    cmapDict = {1:'#706C1E', 2:'#4E9D5C', 3:'#FFF70B', 4:'#FF641B', 5:'#A41FD6'}
+    # cmap = colors.ListedColormap(['#706C1E', '#4E9D5C', '#FFF70B', '#FF641B', '#A41FD6'])
+    # use remapped cmap for issue with oscar's models
+    cmap = colors.ListedColormap([cmapDict[i] for i in sorted(set(predictions))])
     height, width = dim
-    # plt.figure(figsize=())
     image = plt.imshow(predictions.reshape(height, width), cmap=cmap)
     plt.axis("off")
     plt.savefig("image.png", transparent=True, bbox_inches='tight', pad_inches=0)

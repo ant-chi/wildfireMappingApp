@@ -132,9 +132,6 @@ if mapFireSubmit:
             if os.path.splitext(i)[1] in [".tif", ".csv", ".xml", ".png"]:
                 os.remove(i)
 
-        # preFireL8, postFireL8, combined, fireGeometry = prepData(dfSubset[dfSubset["ID"]==fireID])
-        # st.session_state["eeObjects"] = [preFireL8, postFireL8, combined, fireGeometry]
-
         st.session_state["eeObjects"] = prepImages(dfSubset[dfSubset["ID"]==fireID])
         preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
 
@@ -157,10 +154,16 @@ if mapFireSubmit:
                                  'NDVI','elevation', 'percent_tree_cover', 'landCover']])
 
         labels, predictions = df["burnSeverity"], model.predict(modelData)
+        # st.write(pd.Series(predictions).value_counts())
+        if modelKey in ["log_boost", "SVM"]:
+            predictions = predictions + 1
+
+        # st.write(pd.Series(predictions).value_counts())
         predictedImage(predictions, st.session_state["rasterDims"])
         image = Image.open("image.png")
 
-        m = fmap.Map(add_google_map=False, plugin_LatLngPopup=False)   # initialize geemap.foliumMap
+        # initialize geemap.foliumMap and adds legend + image layers
+        m = fmap.Map(add_google_map=False, plugin_LatLngPopup=False)
         add_legend(map=m,
                    legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
                                         ["None"]+burn_viz["palette"]+["None"]+nlcd_viz["palette"])))
@@ -182,15 +185,6 @@ if mapFireSubmit:
                                                         fireBounds[2:][::-1]],
                                                 interactive=True)
         png.add_to(m)
-
-        # m.add_local_tile(source="{}.tif".format(fireID),
-        #                   band=8,
-        #                   palette="Reds",
-        #                   vmin=1,   # comment out to show entire raster
-        #                   vmax=5,
-        #                   nodata=0,
-        #                   layer_name="Local Raster")
-
 
         lon, lat = fireGeometry.centroid().getInfo()["coordinates"]
         m.setCenter(lon, lat, zoom=10)
@@ -214,8 +208,10 @@ if mapFireSubmit:
                                        formatter="{:.2f}").set_properties(**{'text-align': 'center'})
 
 
-        st.write(cm.style.set_properties(**{'text-align': 'center'}).to_html(), unsafe_allow_html=True)
-        st.write(metrics.to_html(), unsafe_allow_html=True)
+        st.write(cm.style.set_properties(**{'text-align': 'center'}).to_html(),
+                 unsafe_allow_html=True)
+        st.write(metrics.to_html(),
+                 unsafe_allow_html=True)
 
         st.altair_chart(chart_1)
         st.altair_chart(chart_2)

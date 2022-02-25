@@ -18,11 +18,15 @@ import joblib
 from sklearn import preprocessing
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-import tabulate
+from sklearn.metrics import confusion_matrix
 
 import zipfile
 import requests
 import urllib.request
+import random
+from matplotlib import colors
+import matplotlib.pyplot as plt
+
 
 
 @st.cache(allow_output_mutation=True, suppress_st_warning=True)
@@ -34,7 +38,7 @@ def loadData():
     fires["geometry"] = fires["geometry"].apply(lambda x: boundsBuffer(x.bounds))
     return fires
 
-
+# fix svm
 @st.cache(allow_output_mutation=True, suppress_st_warning=True)
 def loadModels():
     models = dict()
@@ -43,6 +47,8 @@ def loadModels():
     models["Multi-Layer Perceptron"] = pickle.load(open("models/mlp.sav", 'rb'))
     # models["Random Forest"] = joblib.load(open("models/randomForest.joblib", 'rb'))
     # models["Extra Trees"] = joblib.load(open("models/extraTrees.joblib", 'rb'))
+    models["SVM"] = joblib.load(open("models/svc.pkl", "rb"))
+    # models["Boosted"] = joblib.load(open("models/svc.pkl", "rb"))
     return models
 
 
@@ -50,43 +56,40 @@ def prepData(data):
     scaler = preprocessing.StandardScaler().fit(data.values)
     return scaler.transform(data)
 
-### NEED TO REWRITE ###
-def modelMetrics(data):
-    # bsMap = {1: "Vegetation Growth", 2: "Unburned", 3: "Low", 4: "Moderate", 5: "High"}
-    confusionMatrix = data.pivot_table(index="Prediction",
-                                       columns="burnSeverity",
-                                       values="SR_B1",
-                                       aggfunc=len).fillna(0).sort_index()#.astype(int)
 
-    values = confusionMatrix.values
-    recall, precision = [], []
-    for i in range(0,5):
-        recallCol = values[:,i:i+1].T[0]
-        precisionCol = values[i:i+1,:][0]
+def modelMetrics(labels, predictions):
+    cm = confusion_matrix(labels, predictions)
+    predictedTotal = np.sum(cm, axis = 0)
+    actualTotal = list(np.sum(cm, axis = 1)) + [None]
 
-        recallNum, recallDenom = recallCol[i], sum(recallCol)
-        precisionNum, precisionDenom = precisionCol[i], sum(precisionCol)
+    precision = np.diag(cm) / np.sum(cm, axis = 0)
+    recall = np.diag(cm) / np.sum(cm, axis = 1)
+    f1 = np.round(100*(2*(precision * recall) / (precision + recall)), 2)
 
-        recall.append(np.round(100*(recallNum/recallDenom), 2))
-        precision.append(np.round(100*(precisionNum/precisionDenom), 2))
+    precision = np.round(100*precision, 2)
+    recall = np.round(100*recall, 2)
 
-    confusionMatrix["Precision"] = precision
-    confusionMatrix.loc[6,:] = recall+[None]
+    # precision = np.round(100*(np.diag(cm) / np.sum(cm, axis = 0)), 2)
+    # recall = np.round(100*(np.diag(cm) / np.sum(cm, axis = 1)), 2)
+    # f1 = (2*(precision * recall) / (precision + recall))
 
-    bsClasses = ["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]
-    confusionMatrix.index = bsClasses+["Recall"]
-    confusionMatrix.columns = bsClasses+["Precision"]
-    # confusionMatrix.index = [bsMap[i] for i in confusionMatrix.index]+["Recall"]
-    # confusionMatrix.columns = [bsMap[i] for i in confusionMatrix.columns]+["Precision"]
+    cm = np.vstack((cm, predictedTotal))
+    cm = np.hstack((cm, np.array(actualTotal).reshape(len(actualTotal),1)))
 
-    # confusionMatrix.columns.name="Actual"
-    confusionMatrix.index.name = "Predicted"
+    cm = pd.DataFrame(cm)
 
-    df_2 = pd.DataFrame({"Precision": precision, "Recall": recall})
-    df_2.index = bsClasses
-    df_2.index.name = "Burn Severity"
+    bsMap = {1: "Vegetation Growth", 2: "Unburned", 3: "Low", 4: "Moderate", 5: "High"}
+    columns = [bsMap[i] for i in range(1, len(cm.columns[:-1])+1)]
+    index = [bsMap[i] for i in range(1, len(cm.index[:-1])+1)]
 
-    return confusionMatrix, df_2
+    cm.columns = columns + ["Predicted Total"]
+    cm.index = index + ["Actual Total"]
+    # cm.index.name, cm.columns.name = "Actual", "Predicted"
+
+    metrics = pd.DataFrame({"Precision (%)": precision, "Recall (%)": recall, "F1 (%)": f1})
+    metrics.index = index
+
+    return cm.fillna(0), metrics.fillna(0)
 
 
 def boundsBuffer(x, buffer=0):
@@ -129,9 +132,9 @@ def updateIdState(fireID):
 def updateEE(preFireImage, postFireImage, combined, geometry):
     st.session_state["eeAssets"] = [preFireImage, postFireImage, combined, geometry]
 
+
 def formatFireSelectBox(data):
     return {k: "{} ({})".format(v1, v2) for k, v1, v2 in data[["ID", "Fire", "Year"]].sort_values(by="Fire").values}
-
 
 
 def subsetFires(data, startYear, endYear, containedMonths, sizeClass, counties):
@@ -145,7 +148,8 @@ def subsetFires(data, startYear, endYear, containedMonths, sizeClass, counties):
     else:
         subset = subset[subset["Contained Month"].isin(containedMonths)]
         if len(set([11,12,1,2]).intersection(set(containedMonths))) > 0:
-            st.warning("##### Results for fires in winter months can be inaccurate due to poor image quality from snow and seasonal vegetation loss.")
+            st.warning("##### Results for fires in winter months are likely inaccurate/skewed due \
+            to poor image quality from snow and seasonal vegetation loss.")
 
     if len(sizeClass) == 0:
         pass
@@ -351,14 +355,31 @@ def rasterToCsv(path):
 
     # Open raster and store band data with dict
     img, data = rio.open(path), {}
+    st.session_state["rasterDims"] = [img.height, img.width]
     for index, val in colNames.items():
         data[val] = reduce(iconcat, img.read(index), [])
 
     # Convert to df, remove NA's if present (unlikely), apply pseudo mask, and cast to int for memory reduction
-    df = pd.DataFrame(data).dropna()
-    df = df[df["burnSeverity"]>0].reset_index(drop=True).round(2)
+    # df = pd.DataFrame(data).dropna()
+    df = pd.DataFrame(data) #
+    df = df.fillna(df.mean()).reset_index(drop=True).round(2) #
+    # catches possible exceptions where null pixels lead to burnSeverity == 0
+    num = sum(df["burnSeverity"] <= 0)
+    if num > 0:
+        imputeValues = [random.sample([1,2,3,4,5], k=1)[0] for i in range(num)]
+        df.loc[df["burnSeverity"] <= 0, "burnSeverity"] = imputeValues
+    # df = df[df["burnSeverity"]>0].reset_index(drop=True).round(2)
     df[intCols] = df[intCols].astype(int)
     df.to_csv(savePath, index=False)
+
+
+def predictedImage(predictions, dim):
+    cmap = colors.ListedColormap(['#706C1E', '#4E9D5C', '#FFF70B', '#FF641B', '#A41FD6'])
+    height, width = dim
+    # plt.figure(figsize=())
+    image = plt.imshow(predictions.reshape(height, width), cmap=cmap)
+    plt.axis("off")
+    plt.savefig("image.png", transparent=True, bbox_inches='tight', pad_inches=0)
 
 
 # ############
@@ -415,6 +436,7 @@ def add_legend(map, legend_dict=None, opacity=1.0):
     macro._template = Template(template)
 
     return map.get_root().add_child(macro)
+
 
 
 def altChart(data):

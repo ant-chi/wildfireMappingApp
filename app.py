@@ -8,7 +8,8 @@ import geemap.foliumap as fmap
 import os
 import time
 import folium
-
+# from folium import plugins
+from PIL import Image
 from funcs import *
 
 
@@ -22,11 +23,13 @@ models = loadModels()
 
 # initialize session states
 if "idLst" not in st.session_state:
-    st.session_state["idLst"] = [42033]      # stores fireID and intialized with ID for Abney (default)
+    st.session_state["idLst"] = [0]      # track changes in selected fire to avoid requerying data
 if "currentIndex" not in st.session_state:
-    st.session_state["currentIndex"] = 0     # initializes index of current fireID
+    st.session_state["currentIndex"] = 0     # tracks current fire ID's position in session state
 if "eeObjects" not in st.session_state:
-    st.session_state["eeObjects"] = None      # stores necessary EE objects when data is queried
+    st.session_state["eeObjects"] = None      # stores necessary EE objects if data is queried
+if "rasterDims" not in st.session_state:
+    st.session_state["rasterDims"] = None
 
 # Viz params
 l8_viz = {"bands": ["SR_B7", "SR_B5", "SR_B3"],
@@ -63,39 +66,40 @@ with st.container():
         endMonths = st.multiselect(label="Fire Containment Month",
                                    options=list(monthMap.keys()),
                                    format_func=lambda x: monthMap[x],
-                                   default=[6, 7, 8, 9])
+                                   default=[6, 7, 8, 9],
+                                   help="Month that a fire is contained/extinguished.\
+                                   \n Recommended months are June-October.")
     with col_3:
         counties = st.multiselect(label="County",
                                   options=sorted(df["County"].unique()),
                                   default=["Humboldt", "Lassen", "Mendocino",
                                            "Modoc", "Shasta", "Siskiyou"],
-                                  on_change=None)
+                                  on_change=None,
+                                  help="Counties in Northern California")
 
     with col_4:
         sizeClasses = st.multiselect(label="Size Class",
                                      options=["E", "F", "G",
                                               "H", "I", "J+"],
                                      default=["H", "I", "J+"],
-                                     on_change=None)
-
+                                     on_change=None,
+                                     help="National Wildfire Coordination Group (NWCG) wildfire size classes\
+                                     \n E: 300-999 acres\
+                                     \n F: 1000-4999 acres\
+                                     \n G: 5000-9999 acres\
+                                     \n H: 10000-49999 acres\
+                                     \n I: 50000-99999 acres\
+                                     \n J+: 100000+ acres")
 
 dfSubset = subsetFires(df, startYear, endYear, endMonths, sizeClasses, counties)
 st.write("#### {} fires in query".format(dfSubset.shape[0]))
 
 with st.expander("View data"):
-    # col_3, col_4 = st.columns(2)
     temp = dfSubset[["Fire", "County", "Start", "End", "Acres", "Size Class"]]
     temp["Start"] = temp["Start"].apply(lambda x: str(x)[:10])
     temp["End"] = temp["End"].apply(lambda x: str(x)[:10])
 
-    # tempChart = alt.layer(altBaseLayer,
-    #                       alt.Chart(dfSubset
-    #                         ).mark_geoshape(stroke="red", fill="pink"
-    #                         ).encode(tooltip=["Fire", "Start", "End", "Acres", "Size Class"]))
     st.write(temp)
-    # col_3.write(temp)
-    # col_4.write(altBaseLayer, use_container_width=True)
-
 
 
 with st.form("Map Fire"):
@@ -122,10 +126,10 @@ if mapFireSubmit:
     tempMessage = st.empty()
 
     if idLst[currentIndex-1] != idLst[currentIndex] or len(idLst)==2:
-        tempMessage.write("#### Querying data...")
+        tempMessage.write("#### Querying data.....")
 
         for i in os.listdir():
-            if os.path.splitext(i)[1] in [".tif", ".csv", ".xml"]:
+            if os.path.splitext(i)[1] in [".tif", ".csv", ".xml", ".png"]:
                 os.remove(i)
 
         # preFireL8, postFireL8, combined, fireGeometry = prepData(dfSubset[dfSubset["ID"]==fireID])
@@ -145,17 +149,18 @@ if mapFireSubmit:
 
 
     with st.container():
-        # tempMessage.empty()
-        tempMessage.write("#### Running model and rendering map...")
+        tempMessage.write("#### Running model and rendering map.....")
+        fireData = dfSubset[dfSubset["ID"]==fireID]
 
-        df = pd.read_csv("{}.csv".format(fireID))
-        labels = df["burnSeverity"]
+        df = pd.read_csv("{}.csv".format(fireID))   # maybe add temp persistence
         modelData = prepData(df[['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7',
                                  'NDVI','elevation', 'percent_tree_cover', 'landCover']])
 
-        df["Prediction"] = model.predict(modelData)
+        labels, predictions = df["burnSeverity"], model.predict(modelData)
+        predictedImage(predictions, st.session_state["rasterDims"])
+        image = Image.open("image.png")
 
-        m = fmap.Map(add_google_map=False)   # initialize geemap.foliumMap
+        m = fmap.Map(add_google_map=False, plugin_LatLngPopup=False)   # initialize geemap.foliumMap
         add_legend(map=m,
                    legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
                                         ["None"]+burn_viz["palette"]+["None"]+nlcd_viz["palette"])))
@@ -169,6 +174,14 @@ if mapFireSubmit:
         m.addLayer(combined.clip(fireGeometry), nlcd_viz, "Land Cover")
         m.addLayer(combined.clip(fireGeometry), burn_viz, "Burn Severity")
 
+        fireBounds = list(fireData["geometry"].bounds.values[0])
+
+        png = folium.raster_layers.ImageOverlay(name='Predicted Burn Severity',
+                                                image="image.png",
+                                                bounds=[fireBounds[:2][::-1],
+                                                        fireBounds[2:][::-1]],
+                                                interactive=True)
+        png.add_to(m)
 
         # m.add_local_tile(source="{}.tif".format(fireID),
         #                   band=8,
@@ -186,46 +199,26 @@ if mapFireSubmit:
 
         emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.75,1])
         with col_7:
-            m.to_streamlit(height=700, width=600, scrolling=True)
+            m.to_streamlit(height=670, width=600, scrolling=True)
 
         tempMessage.empty()
 
-        st.write("#### {} Accuracy: {}%".format(modelKey,
-                                                np.round(100*np.mean(df["burnSeverity"]==df["Prediction"]), 2)))
-        confusionMatrix, df_2 = modelMetrics(df)
-        st.write(confusionMatrix.to_markdown())
-        st.write(df_2.to_markdown())
+        st.write("#### {} Accuracy: {}%".format(modelKey, np.round(100*np.mean(labels==predictions), 2)))
+
+        cm, metrics = modelMetrics(labels, predictions)
+
+        # st.write(cm.to_markdown(numalign="center"))
+        # st.write(metrics.to_markdown(numalign="center"))
+
+        metrics = metrics.style.format(subset=["Precision (%)", "Recall (%)", "F1 (%)"],
+                                       formatter="{:.2f}").set_properties(**{'text-align': 'center'})
+
+
+        st.write(cm.style.set_properties(**{'text-align': 'center'}).to_html(), unsafe_allow_html=True)
+        st.write(metrics.to_html(), unsafe_allow_html=True)
 
         st.altair_chart(chart_1)
         st.altair_chart(chart_2)
-
-
-        # st.markdown(
-        #     """
-        # |  | Vegetation Growth | Unburned | Low | Moderate | High | Predicted Total | Precision |
-        # | --- | --- | --- | --- | --- | --- | --- | --- |
-        # | **Vegetation Growth** | blah | blah | blah | blah | blah | blah | blah |
-        # | **Unburned** | blah | blah | blah | blah | blah | blah | blah |
-        # | **Low** | blah | blah | blah | blah | blah | blah | blah |
-        # | **Moderate** | blah | blah | blah | blah | blah | blah | blah |
-        # | **High** | blah | blah | blah | blah | blah | blah | blah |
-        # | **Actual Total** | blah | blah | blah | blah | blah | blah | blah |
-        # | **Recall** | blah | blah | blah | blah | blah | blah | blah |
-        # """
-        # )
-        #
-        #
-        # st.markdown(
-        #     """
-        # | Class | Precision | Recall | Accuracy |
-        # | --- | --- | --- | --- |
-        # | **Vegetation Growth** | blah | blah | blah |
-        # | **Unburned** | blah | blah | blah |
-        # | **Low** | blah | blah | blah |
-        # | **Moderate** | blah | blah | blah |
-        # | **High** | blah | blah | blah |
-        # """
-        # )
 
     st.write("Total Runtime: {} seconds".format(np.round((time.time()-startTime), 2)))
 

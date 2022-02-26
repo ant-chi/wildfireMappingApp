@@ -129,7 +129,7 @@ if mapFireSubmit:
         tempMessage.write("#### Querying data.....")
 
         for i in os.listdir():
-            if os.path.splitext(i)[1] in [".tif", ".csv", ".xml", ".png"]:
+            if os.path.splitext(i)[1] in [".tif", ".csv", ".xml", ".png", ".parquet"]:
                 os.remove(i)
 
         st.session_state["eeObjects"] = prepImages(dfSubset[dfSubset["ID"]==fireID])
@@ -137,9 +137,9 @@ if mapFireSubmit:
 
         fileName = "{}.tif".format(fireID)
 
-        # Download raster from EE and convert to csv
+        # Download raster from EE and convert to parquet
         loadRaster([30, 60, 90, 120, 150], fileName, combined, fireGeometry)
-        rasterToCsv(fileName)
+        rasterToParquet(fileName)
 
     else: # access session_state variables
         preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
@@ -148,8 +148,9 @@ if mapFireSubmit:
     with st.container():
         tempMessage.write("#### Running model and rendering map.....")
         fireData = dfSubset[dfSubset["ID"]==fireID]
+        fireBounds = list(fireData["geometry"].bounds.values[0])
 
-        df = pd.read_csv("{}.csv".format(fireID))   # maybe add temp persistence
+        df = pd.read_parquet("{}.parquet".format(fireID))
         modelData = prepData(df[['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7',
                                  'NDVI','elevation', 'percent_tree_cover', 'landCover']])
 
@@ -177,8 +178,7 @@ if mapFireSubmit:
         m.addLayer(combined.clip(fireGeometry), nlcd_viz, "Land Cover")
         m.addLayer(combined.clip(fireGeometry), burn_viz, "Burn Severity")
 
-        fireBounds = list(fireData["geometry"].bounds.values[0])
-
+        # adds png of predicted image to folium map
         png = folium.raster_layers.ImageOverlay(name='Predicted Burn Severity',
                                                 image="image.png",
                                                 bounds=[fireBounds[:2][::-1],

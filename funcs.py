@@ -10,8 +10,8 @@ from shapely.geometry import Polygon
 import os
 import altair as alt
 import rasterio as rio
-from functools import reduce
-from operator import iconcat
+# from functools import reduce
+# from operator import iconcat
 
 import pickle
 import joblib
@@ -35,7 +35,7 @@ def loadData():
     fires["Start"] = pd.DatetimeIndex(fires["Start"])
     fires["End"] = pd.DatetimeIndex(fires["End"])
 
-    fires["geometry"] = fires["geometry"].apply(lambda x: boundsBuffer(x.bounds))
+    fires["geometry"] = fires["geometry"].apply(lambda x: bbox(x.bounds))
     return fires
 
 # fix svm
@@ -92,9 +92,9 @@ def modelMetrics(labels, predictions):
     return cm.fillna(0), metrics.fillna(0)
 
 
-def boundsBuffer(x, buffer=0):
+def bbox(x):
     """
-    Creates a bounding box with a default 7.5% buffer
+    Creates a bounding box over a geometry object
 
     Args:
         x: GeoPandas geometry object
@@ -103,12 +103,6 @@ def boundsBuffer(x, buffer=0):
         Shapely.Polygon that represents buffered bounding box over input geometry
     """
     minx, miny, maxx, maxy = x
-    buffer_x, buffer_y = np.abs(buffer*(maxx-minx)), np.abs(buffer*(maxy-miny))
-    minx -= buffer_x
-    maxx += buffer_x
-    miny -= buffer_y
-    maxy += buffer_y
-
     coords = ((minx, miny), (minx, maxy), (maxx, maxy), (maxx, miny))
     return Polygon(coords)
 
@@ -337,22 +331,23 @@ def loadRaster(imgScale, fileName, image, geometry):
         st.error("#### Fire exceeds total request size.")
 
 
-def rasterToCsv(path):
+def rasterToParquet(path):
     colNames = ['SR_B1','SR_B2','SR_B3','SR_B4','SR_B5','SR_B6','SR_B7',
                 'burnSeverity','dNBR','NDVI','elevation','pr','rmax','rmin',
                 'sph','srad','th','tmmn','tmmx','vs','erc','eto','bi','fm100',
                 'fm1000','etr','vpd','percent_tree_cover','landCover','landCoverViz']
 
-    savePath = path.replace(".tif", ".csv")
+    # savePath = path.replace(".tif", ".csv")
+    savePath = path.replace(".tif", ".parquet")
     intCols = colNames[:11] + colNames[-3:]
     floatCols = colNames[11:-3]
-    colNames = {index+1:value for index, value in enumerate(colNames)}
+    colNames = {index:value for index, value in enumerate(colNames)}
 
-    # Open raster and store band data with dict
     img, data = rio.open(path), {}
     st.session_state["rasterDims"] = [img.height, img.width]
+    img = img.read()
     for index, val in colNames.items():
-        data[val] = reduce(iconcat, img.read(index), [])
+        data[val] = img[index].flatten()
 
     # Convert to df, remove NA's if present (unlikely), apply pseudo mask, and cast to int for memory reduction
     # df = pd.DataFrame(data).dropna()
@@ -365,7 +360,7 @@ def rasterToCsv(path):
         df.loc[df["burnSeverity"] <= 0, "burnSeverity"] = imputeValues
     # df = df[df["burnSeverity"]>0].reset_index(drop=True).round(2)
     df[intCols] = df[intCols].astype(int)
-    df.to_csv(savePath, index=False)
+    df.to_parquet(savePath)
 
 
 def predictedImage(predictions, dim):
@@ -378,8 +373,6 @@ def predictedImage(predictions, dim):
     plt.axis("off")
     plt.savefig("image.png", transparent=True, bbox_inches='tight', pad_inches=0)
 
-
-# ############
 
 def add_legend(map, legend_dict=None, opacity=1.0):
     """Adds a customized basemap to the map. Reference: https://bit.ly/3oV6vnH

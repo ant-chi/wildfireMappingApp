@@ -38,7 +38,8 @@ def loadData():
     return fires
 
 
-@st.cache(allow_output_mutation=True, suppress_st_warning=True)
+# @st.cache(allow_output_mutation=True, suppress_st_warning=True)
+@st.cache
 def loadModels():
     models = dict()
 

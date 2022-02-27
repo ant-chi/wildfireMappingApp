@@ -57,7 +57,6 @@ def loadModels():
     return models
 
 
-
 def prepData(data):
     scaler = preprocessing.StandardScaler().fit(data.values)
     return scaler.transform(data)

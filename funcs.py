@@ -49,7 +49,7 @@ def loadModels():
     # models["ETC OG"] = joblib.load(open("models/extraTrees.joblib", 'rb'))
 
     models["RF 2"] = joblib.load(open("models/rf.pkl", 'rb'))
-    # models["ETC 2"] = joblib.load(open("models/etc.pkl", 'rb'))
+    models["ETC 2"] = joblib.load(open("models/etc.pkl", 'rb'))
 
     models["SVM"] = joblib.load(open("models/svc.pkl", "rb"))
     models["log_boost"] = joblib.load(open("models/log_boost.pkl", "rb"))

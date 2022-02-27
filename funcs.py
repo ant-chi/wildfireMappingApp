@@ -37,7 +37,7 @@ def loadData():
     fires["geometry"] = fires["geometry"].apply(lambda x: bbox(x.bounds))
     return fires
 
-# fix svm
+
 @st.cache(allow_output_mutation=True, suppress_st_warning=True)
 def loadModels():
     models = dict()
@@ -49,9 +49,9 @@ def loadModels():
 
     etcURL = "https://www.dl.dropboxusercontent.com/s/jr8vwvz1tsee1f9/etc.pkl?dl=0"
     etcRequest = requests.get(etcURL, allow_redirects=True)
-    open("models/etc.pkl", "wb").write(etcRequest.content)
-    del etcURL
-    models["ETC dropbox"] = joblib.load(open("models/etc.pkl", 'rb'))
+    open("extraTrees.pkl", "wb").write(etcRequest.content)
+    # del etcURL
+    models["Extra Trees"] = joblib.load(open("extraTrees.pkl", 'rb'))
 
     models["SVM"] = joblib.load(open("models/svc.pkl", "rb"))
     models["log_boost"] = joblib.load(open("models/log_boost.pkl", "rb"))

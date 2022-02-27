@@ -18,9 +18,10 @@ st.set_page_config(layout="wide", page_title="INSERT TITLE", page_icon=":earth_a
 # initialize EE + cache data and models
 geemap.ee_initialize()
 
-st.write(os.listdir())
 df = loadData()
 models = loadModels()
+
+models["Extra Trees"] = etc()
 
 # initialize session states
 if "idLst" not in st.session_state:

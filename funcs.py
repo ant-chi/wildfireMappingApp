@@ -48,9 +48,9 @@ def loadModels():
 
     etcURL = "https://www.dl.dropboxusercontent.com/s/jr8vwvz1tsee1f9/etc.pkl?dl=0"
     etcRequest = requests.get(etcURL, allow_redirects=True)
-    open("models/extraTrees.pkl", "wb").write(etcRequest.content)
+    open("extraTrees.pkl", "wb").write(etcRequest.content)
     del etcURL
-    models["Extra Trees"] = joblib.load(open("models/extraTrees.pkl", 'rb'))
+    models["Extra Trees"] = joblib.load(open("extraTrees.pkl", 'rb'))
 
     models["SVM"] = joblib.load(open("models/svc.pkl", "rb"))
     models["log_boost"] = joblib.load(open("models/log_boost.pkl", "rb"))

@@ -44,8 +44,13 @@ def loadModels():
 
     models["Logistic Regression"] = pickle.load(open("models/logistic_regression.sav", 'rb'))
     models["Multi-Layer Perceptron"] = pickle.load(open("models/mlp.sav", 'rb'))
-    # models["Random Forest"] = joblib.load(open("models/randomForest.joblib", 'rb'))
-    # models["Extra Trees"] = joblib.load(open("models/extraTrees.joblib", 'rb'))
+
+    # models["RF OG"] = joblib.load(open("models/randomForest.joblib", 'rb'))
+    # models["ETC OG"] = joblib.load(open("models/extraTrees.joblib", 'rb'))
+
+    models["RF 2"] = joblib.load(open("models/rf.pkl", 'rb'))
+    # models["ETC 2"] = joblib.load(open("models/etc.pkl", 'rb'))
+
     models["SVM"] = joblib.load(open("models/svc.pkl", "rb"))
     models["log_boost"] = joblib.load(open("models/log_boost.pkl", "rb"))
     return models

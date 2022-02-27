@@ -50,7 +50,7 @@ def loadModels():
     etcURL = "https://www.dl.dropboxusercontent.com/s/jr8vwvz1tsee1f9/etc.pkl?dl=0"
     etcRequest = requests.get(etcURL, allow_redirects=True)
     open("models/etc.pkl", "wb").write(etcRequest.content)
-    del url
+    del etcURL
     models["ETC dropbox"] = joblib.load(open("models/etc.pkl", 'rb'))
 
     models["SVM"] = joblib.load(open("models/svc.pkl", "rb"))

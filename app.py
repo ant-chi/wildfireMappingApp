@@ -20,7 +20,8 @@ geemap.ee_initialize()
 
 df = loadData()
 models = loadModels()
- st.write(os.listdir())
+
+st.write(os.listdir())
 
 # initialize session states
 if "idLst" not in st.session_state:

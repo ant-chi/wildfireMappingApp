@@ -28,7 +28,6 @@ from matplotlib import colors
 import matplotlib.pyplot as plt
 
 
-
 @st.cache(allow_output_mutation=True, suppress_st_warning=True)
 def loadData():
     fires = gpd.read_file("data/norCalFires.geojson")
@@ -45,7 +44,7 @@ def loadModels():
 
     models["Logistic Regression"] = pickle.load(open("models/logistic_regression.sav", 'rb'))
     models["Multi-Layer Perceptron"] = pickle.load(open("models/mlp.sav", 'rb'))
-    # models["Random Forest"] = joblib.load(open("models/randomForest.joblib", 'rb'))
+    models["Random Forest"] = joblib.load(open("models/randomForest.joblib", 'rb'))
     # models["Extra Trees"] = joblib.load(open("models/extraTrees.joblib", 'rb'))
     models["SVM"] = joblib.load(open("models/svc.pkl", "rb"))
     models["log_boost"] = joblib.load(open("models/log_boost.pkl", "rb"))

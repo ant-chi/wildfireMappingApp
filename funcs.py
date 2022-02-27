@@ -38,21 +38,19 @@ def loadData():
     return fires
 
 
-# @st.cache(allow_output_mutation=True, suppress_st_warning=True)
-@st.cache
+@st.cache(allow_output_mutation=True, suppress_st_warning=True)
 def loadModels():
     models = dict()
 
     models["Logistic Regression"] = pickle.load(open("models/logistic_regression.sav", 'rb'))
     models["Multi-Layer Perceptron"] = pickle.load(open("models/mlp.sav", 'rb'))
     models["Random Forest"] = joblib.load(open("models/rf.pkl", 'rb'))
-    # models["ETC 2"] = joblib.load(open("models/etc.pkl", 'rb'))
 
     etcURL = "https://www.dl.dropboxusercontent.com/s/jr8vwvz1tsee1f9/etc.pkl?dl=0"
     etcRequest = requests.get(etcURL, allow_redirects=True)
-    open("extraTrees.pkl", "wb").write(etcRequest.content)
-    # del etcURL
-    models["Extra Trees"] = joblib.load(open("extraTrees.pkl", 'rb'))
+    open("models/extraTrees.pkl", "wb").write(etcRequest.content)
+    del etcURL
+    models["Extra Trees"] = joblib.load(open("models/extraTrees.pkl", 'rb'))
 
     models["SVM"] = joblib.load(open("models/svc.pkl", "rb"))
     models["log_boost"] = joblib.load(open("models/log_boost.pkl", "rb"))

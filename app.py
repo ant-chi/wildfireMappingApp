@@ -21,7 +21,6 @@ geemap.ee_initialize()
 df = loadData()
 models = loadModels()
 
-models["Extra Trees"] = etc()
 
 # initialize session states
 if "idLst" not in st.session_state:

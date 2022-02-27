@@ -57,15 +57,6 @@ def loadModels():
     return models
 
 
-@st.cache(allow_output_mutation=True, suppress_st_warning=True)
-def etc():
-    etcURL = "https://www.dl.dropboxusercontent.com/s/jr8vwvz1tsee1f9/etc.pkl?dl=0"
-    etcRequest = requests.get(etcURL, allow_redirects=True)
-    open("extraTrees.pkl", "wb").write(etcRequest.content)
-    del etcURL
-    return joblib.load(open("extraTrees.pkl", 'rb'))
-    # models["Extra Trees"] = joblib.load(open("extraTrees.pkl", 'rb'))
-
 
 def prepData(data):
     scaler = preprocessing.StandardScaler().fit(data.values)

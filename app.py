@@ -21,7 +21,7 @@ geemap.ee_initialize()
 df = loadData()
 models = loadModels()
 
-st.write(os.listdir())
+# st.write(os.listdir())
 
 # initialize session states
 if "idLst" not in st.session_state:
@@ -96,7 +96,7 @@ with st.container():
 dfSubset = subsetFires(df, startYear, endYear, endMonths, sizeClasses, counties)
 st.write("#### {} fires in query".format(dfSubset.shape[0]))
 
-with st.expander("View data"):
+with st.expander("View fire data"):
     temp = dfSubset[["Fire", "County", "Start", "End", "Acres", "Size Class"]]
     temp["Start"] = temp["Start"].apply(lambda x: str(x)[:10])
     temp["End"] = temp["End"].apply(lambda x: str(x)[:10])
@@ -121,6 +121,15 @@ with st.form("Map Fire"):
 
 if mapFireSubmit:
     startTime = time.time()
+    fireData = dfSubset[dfSubset["ID"]==fireID]
+    fireBounds = list(fireData["geometry"].bounds.values[0])
+
+    # with winterWarning:
+    if list(fireData["Contained Month"])[0] in [11,12,1,2]:
+            # winterWarning.clear()
+        st.warning("##### Snow and seasonal changes in vegetation can produce \
+        inaccurate/skewed results for winter fires.")
+
     model = models[modelKey]
 
     # Tracks if fireID has changed. If not, data will be accessed from previous session state
@@ -149,8 +158,9 @@ if mapFireSubmit:
 
     with st.container():
         tempMessage.write("#### Running model and rendering map.....")
-        fireData = dfSubset[dfSubset["ID"]==fireID]
-        fireBounds = list(fireData["geometry"].bounds.values[0])
+        # fireData = dfSubset[dfSubset["ID"]==fireID]
+        # fireBounds = list(fireData["geometry"].bounds.values[0])
+
 
         df = pd.read_parquet("{}.parquet".format(fireID))
         modelData = prepData(df[['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7',
@@ -191,34 +201,39 @@ if mapFireSubmit:
         lon, lat = fireGeometry.centroid().getInfo()["coordinates"]
         m.setCenter(lon, lat, zoom=10)
         m.add_layer_control()
-        chart_1, chart_2 = altChart(df)
+
+        # chart_1, chart_2 = altChart(df)
+        lcChart = altChart(df)
+        cm, metrics = modelMetrics(labels, predictions)
+        metrics = metrics.style.format(subset=["Precision (%)", "Recall (%)", "F1 (%)"],
+                                       formatter="{:.2f}").set_properties(**{'text-align': 'center'})
 
         emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.75,1])
         with col_7:
             m.to_streamlit(height=670, width=600, scrolling=True)
 
+        # with st.container()
+        st.write("#### {} Accuracy: {}%".format(modelKey, np.round(100*np.mean(labels==predictions), 2)))
+        col_8, col_9 = st.columns(2)
+
+        col_8.write(cm.style.set_properties(**{'text-align': 'center'}).to_html(),
+                 unsafe_allow_html=True)
+        col_9.write(metrics.to_html(),
+                 unsafe_allow_html=True)
+
         tempMessage.empty()
 
-        st.write("#### {} Accuracy: {}%".format(modelKey, np.round(100*np.mean(labels==predictions), 2)))
+        st.altair_chart(lcChart)
 
-        cm, metrics = modelMetrics(labels, predictions)
+        # st.write(cm.style.set_properties(**{'text-align': 'center'}).to_html(),
+        #          unsafe_allow_html=True)
+        # st.write(metrics.to_html(),
+        #          unsafe_allow_html=True)
 
-        # st.write(cm.to_markdown(numalign="center"))
-        # st.write(metrics.to_markdown(numalign="center"))
+        # st.altair_chart(chart_1)
+        # st.altair_chart(chart_2)
 
-        metrics = metrics.style.format(subset=["Precision (%)", "Recall (%)", "F1 (%)"],
-                                       formatter="{:.2f}").set_properties(**{'text-align': 'center'})
-
-
-        st.write(cm.style.set_properties(**{'text-align': 'center'}).to_html(),
-                 unsafe_allow_html=True)
-        st.write(metrics.to_html(),
-                 unsafe_allow_html=True)
-
-        st.altair_chart(chart_1)
-        st.altair_chart(chart_2)
-
-    st.write("Total Runtime: {} seconds".format(np.round((time.time()-startTime), 2)))
+    st.success("#### Total Runtime: {} seconds".format(np.round((time.time()-startTime), 2)))
 
 
 footer="""<style>

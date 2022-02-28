@@ -144,9 +144,6 @@ def subsetFires(data, startYear, endYear, containedMonths, sizeClass, counties):
 
     if len(containedMonths) > 0:
         subset = subset[subset["Contained Month"].isin(containedMonths)]
-        if len(set([11,12,1,2]).intersection(set(containedMonths))) > 0:
-            st.warning("##### Results for fires in winter months are likely inaccurate/skewed due \
-            to poor image quality from snow and seasonal vegetation loss.")
 
     if len(sizeClass) > 0:
         subset = subset[subset["Size Class"].isin(sizeClass)]
@@ -155,6 +152,10 @@ def subsetFires(data, startYear, endYear, containedMonths, sizeClass, counties):
         subset = subset[subset["County"].isin(counties)]
 
     return subset.sort_values(by="Fire").reset_index(drop=True)
+
+
+# def getLandsatImages():
+
 
 
 def prepImages(fireGPD):
@@ -166,14 +167,14 @@ def prepImages(fireGPD):
                     ).filterDate(startDate.advance(-60, "day"), startDate
                     ).filterBounds(fireGeometry
                     ).filter(ee.Filter.lte("CLOUD_COVER", 10)
-                    ).mosaic(
+                    ).mean(
                     ).clip(fireGeometry)
 
     postFireImage = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2"
                      ).filterDate(endDate.advance(1, "day"), endDate.advance(60, "day")
                      ).filterBounds(fireGeometry
                      ).filter(ee.Filter.lte("CLOUD_COVER", 15)
-                     ).mosaic(
+                     ).mean(
                      ).clip(fireGeometry)
 
     # Calculate NBR, dNBR, and burn severity
@@ -316,7 +317,6 @@ def loadRaster(imgScale, fileName, image, geometry):
         return
     startTime = time.time()
     numTries = len(imgScale)
-    success = False
     for i in range(numTries):
         try:
             ee_export_image(image=image,
@@ -324,16 +324,9 @@ def loadRaster(imgScale, fileName, image, geometry):
                             scale=imgScale[i],
                             region=geometry)
             if fileName in os.listdir():
-                success = True
-                resolution = imgScale[i]
                 break
         except Exception:
             continue
-
-    if success:
-        st.success("##### Downloaded raster at {}m scale in {} seconds".format(resolution, np.round((time.time()-startTime), 2)))
-    else:
-        st.error("#### Fire exceeds total request size.")
 
 
 def rasterToParquet(path):
@@ -354,16 +347,16 @@ def rasterToParquet(path):
     for index, val in colNames.items():
         data[val] = img[index].flatten()
 
-    # Convert to df, remove NA's if present (unlikely), apply pseudo mask, and cast to int for memory reduction
-    # df = pd.DataFrame(data).dropna()
-    df = pd.DataFrame(data) #
+    # Convert to df, impute NA with mean + random value for burnSeverity == 0 (unlikely)
+    df = pd.DataFrame(data)
     df = df.fillna(df.mean()).reset_index(drop=True).round(2) #
+
     # catches possible exceptions where null pixels lead to burnSeverity == 0
     num = sum(df["burnSeverity"] <= 0)
     if num > 0:
         imputeValues = [random.sample([1,2,3,4,5], k=1)[0] for i in range(num)]
         df.loc[df["burnSeverity"] <= 0, "burnSeverity"] = imputeValues
-    # df = df[df["burnSeverity"]>0].reset_index(drop=True).round(2)
+
     df[intCols] = df[intCols].astype(int)
     df.to_parquet(savePath)
 
@@ -435,21 +428,21 @@ def add_legend(map, legend_dict=None, opacity=1.0):
 
 
 def altChart(data):
-    bsMap = {1: "Vegetation Growth", 2: "Unburned", 3: "Low", 4: "Moderate", 5: "High"}
+    # bsMap = {1: "Vegetation Growth", 2: "Unburned", 3: "Low", 4: "Moderate", 5: "High"}
     lcMap = {1: "Other", 2: "Developed", 3: "Forest", 4: "Shrub", 5: "Grassland", 6: "Agriculture"}
 
-    bsPivot = data.pivot_table(index="burnSeverity",
-                               values="SR_B1",
-                               aggfunc=len
-                 ).reset_index(
-                 ).sort_values(by="burnSeverity"
-                 ).rename(columns={"burnSeverity": "Burn Severity",
-                                   "SR_B1": "Percentage"})
-    bsPivot["Percentage"] /= bsPivot["Percentage"].sum()
-    bsPivot["Percentage"] = (100*bsPivot["Percentage"]).round(2)
-    bsPivot["Burn Severity"] = bsPivot["Burn Severity"].apply(lambda x: bsMap[x])
-
-
+    # bsPivot = data.pivot_table(index="burnSeverity",
+    #                            values="SR_B1",
+    #                            aggfunc=len
+    #              ).reset_index(
+    #              ).sort_values(by="burnSeverity"
+    #              ).rename(columns={"burnSeverity": "Burn Severity",
+    #                                "SR_B1": "Percentage"})
+    # bsPivot["Percentage"] /= bsPivot["Percentage"].sum()
+    # bsPivot["Percentage"] = (100*bsPivot["Percentage"]).round(2)
+    # bsPivot["Burn Severity"] = bsPivot["Burn Severity"].apply(lambda x: bsMap[x])
+    #
+    #
     lcPivot = data.pivot_table(index="landCoverViz",
                                values="SR_B1",
                                aggfunc=len
@@ -462,21 +455,21 @@ def altChart(data):
     lcPivot["Land Cover"] = lcPivot["Land Cover"].apply(lambda x: lcMap[x])
 
 
-    bsChart = alt.Chart(bsPivot
-                ).mark_bar(
-                ).encode(x=alt.X("Percentage:Q",
-                                 title=" "),
-                         y=alt.Y("Burn Severity:O",
-                                 title=" ",
-                                 sort=list(bsMap.values())),
-                         color=alt.Color("Burn Severity",
-                                         legend=None,
-                                         scale=alt.Scale(domain=list(bsMap.values()),
-                                                         range=["rgb(112,108,30)", "rgb(78,157,92)",
-                                                                "rgb(255,247,11)", "rgb(255,100,27)",
-                                                                "rgb(164,31,214)"])),
-                         tooltip=["Burn Severity", "Percentage"]
-                ).properties(title="Burn Severity (%)")
+    # bsChart = alt.Chart(bsPivot
+    #             ).mark_bar(
+    #             ).encode(x=alt.X("Percentage:Q",
+    #                              title=" "),
+    #                      y=alt.Y("Burn Severity:O",
+    #                              title=" ",
+    #                              sort=list(bsMap.values())),
+    #                      color=alt.Color("Burn Severity",
+    #                                      legend=None,
+    #                                      scale=alt.Scale(domain=list(bsMap.values()),
+    #                                                      range=["rgb(112,108,30)", "rgb(78,157,92)",
+    #                                                             "rgb(255,247,11)", "rgb(255,100,27)",
+    #                                                             "rgb(164,31,214)"])),
+    #                      tooltip=["Burn Severity", "Percentage"]
+    #             ).properties(title="Burn Severity (%)")
 
     lcChart = alt.Chart(lcPivot
                 ).mark_bar(
@@ -494,4 +487,5 @@ def altChart(data):
                          tooltip=["Land Cover", "Percentage"]
                 ).properties(title="Land Cover (%)")
 
-    return bsChart, lcChart
+    # return bsChart, lcChart
+    return lcChart

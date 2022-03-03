@@ -102,7 +102,7 @@ def convertDate(date):
 
 def formatFireSelectBox(data):
     """
-    
+
     """
     return {k: "{} ({})".format(v1, v2) for k, v1, v2 in data[["ID", "Fire", "Year"]].sort_values(by="Fire").values}
 
@@ -337,22 +337,22 @@ def rasterToParquet(path):
     df.to_parquet(savePath)
 
 
-def predictedImage(predictions, dim):
+def burnSeverityImage(data, dim, fileName):
     """
-    Produces a predicted burn severity image
+    Produces a burn severity image from raster data
 
     Args:
-        predictions: array of predicted burn severities
+        data: raster data
         dim: height and width of output image
     """
     cmapDict = {1:'#706C1E', 2:'#4E9D5C', 3:'#FFF70B', 4:'#FF641B', 5:'#A41FD6'}
-    # cmap = colors.ListedColormap(['#706C1E', '#4E9D5C', '#FFF70B', '#FF641B', '#A41FD6'])
-    # use remapped cmap for issue with oscar's models
-    cmap = colors.ListedColormap([cmapDict[i] for i in sorted(set(predictions))])
+
+    # remapped cmap for issue with oscar's models
+    cmap = colors.ListedColormap([cmapDict[i] for i in sorted(set(data))])
     height, width = dim
-    image = plt.imshow(predictions.reshape(height, width), cmap=cmap)
+    image = plt.imshow(data.reshape(height, width), cmap=cmap)
     plt.axis("off")
-    plt.savefig("image.png", transparent=True, bbox_inches='tight', pad_inches=0)
+    plt.savefig(fileName, transparent=True, bbox_inches='tight', pad_inches=0)
 
 
 def add_legend(map, legend_dict=None, opacity=1.0):

@@ -139,6 +139,7 @@ if mapFireSubmit:
     if idLst[currentIndex-1] != idLst[currentIndex] or len(idLst)==2:
         tempMessage.write("#### Querying data.....")
 
+        # delete saved files 
         for i in os.listdir():
             if os.path.splitext(i)[1] in [".tif", ".csv", ".xml", ".png", ".parquet"]:
                 os.remove(i)
@@ -146,11 +147,14 @@ if mapFireSubmit:
         st.session_state["eeObjects"] = prepImages(dfSubset[dfSubset["ID"]==fireID])
         preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
 
-        fileName = "{}.tif".format(fireID)
+        # fileName = "{}.tif".format(fireID)
+
 
         # Download raster from EE and convert to parquet
-        loadRaster([30, 60, 90, 120, 150], fileName, combined, fireGeometry)
-        rasterToParquet(fileName)
+        # loadRaster([30, 60, 90, 120, 150], fileName, combined, fireGeometry)
+        # rasterToParquet(fileName)
+        loadRaster([30, 60, 90, 120, 150], "raster.tif", combined, fireGeometry)
+        rasterToParquet("raster.tif")
 
     else: # access session_state variables
         preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
@@ -161,19 +165,20 @@ if mapFireSubmit:
         # fireData = dfSubset[dfSubset["ID"]==fireID]
         # fireBounds = list(fireData["geometry"].bounds.values[0])
 
-
-        df = pd.read_parquet("{}.parquet".format(fireID))
+        # df = pd.read_parquet("{}.parquet".format(fireID))
+        df = pd.read_parquet("raster.parquet")
         modelData = prepData(df[['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7',
                                  'NDVI','elevation', 'percent_tree_cover', 'landCover']])
 
-        labels, predictions = df["burnSeverity"], model.predict(modelData)
-        # st.write(pd.Series(predictions).value_counts())
+        labels, predictions = df["burnSeverity"].values, model.predict(modelData)
+
+        # +1 for oscar models
         if modelKey in ["log_boost", "SVM"]:
             predictions = predictions + 1
 
-        # st.write(pd.Series(predictions).value_counts())
-        predictedImage(predictions, st.session_state["rasterDims"])
-        image = Image.open("image.png")
+        # png of actual+predicted burn severity from raster data
+        burnSeverityImage(labels, st.session_state["rasterDims"], "actualBS.png")
+        burnSeverityImage(predictions, st.session_state["rasterDims"], "predictedBS.png")
 
         # initialize geemap.foliumMap and adds legend + image layers
         m = fmap.Map(add_google_map=False, plugin_LatLngPopup=False)
@@ -188,15 +193,21 @@ if mapFireSubmit:
         m.addLayer(postFireL8, l8_viz, "Post-Fire (753)")
 
         m.addLayer(combined.clip(fireGeometry), nlcd_viz, "Land Cover")
-        m.addLayer(combined.clip(fireGeometry), burn_viz, "Burn Severity")
 
-        # adds png of predicted image to folium map
-        png = folium.raster_layers.ImageOverlay(name='Predicted Burn Severity',
-                                                image="image.png",
-                                                bounds=[fireBounds[:2][::-1],
-                                                        fireBounds[2:][::-1]],
-                                                interactive=True)
-        png.add_to(m)
+        # adds burn severity png's as folium layers
+        png_1 = folium.raster_layers.ImageOverlay(name='Burn Severity',
+                                                  image="actualBS.png",
+                                                  bounds=[fireBounds[:2][::-1],
+                                                          fireBounds[2:][::-1]],
+                                                  interactive=True)
+        png_1.add_to(m)
+
+        png_2 = folium.raster_layers.ImageOverlay(name='Predicted Burn Severity',
+                                                  image="predictedBS.png",
+                                                  bounds=[fireBounds[:2][::-1],
+                                                          fireBounds[2:][::-1]],
+                                                  interactive=True)
+        png_2.add_to(m)
 
         lon, lat = fireGeometry.centroid().getInfo()["coordinates"]
         m.setCenter(lon, lat, zoom=10)
@@ -213,17 +224,27 @@ if mapFireSubmit:
             m.to_streamlit(height=670, width=600, scrolling=True)
 
         # with st.container()
-        st.write("#### {} Accuracy: {}%".format(modelKey, np.round(100*np.mean(labels==predictions), 2)))
-        col_8, col_9 = st.columns(2)
-
-        col_8.write(cm.style.set_properties(**{'text-align': 'center'}).to_html(),
-                 unsafe_allow_html=True)
-        col_9.write(metrics.to_html(),
-                 unsafe_allow_html=True)
+            st.write("#### {} Accuracy: {}%".format(modelKey, np.round(100*np.mean(labels==predictions), 2)))
+            st.write(cm.style.set_properties(**{'text-align': 'center'}).to_html(),
+                     unsafe_allow_html=True)
+            st.write(metrics.to_html(),
+                     unsafe_allow_html=True)
+            st.altair_chart(lcChart)
 
         tempMessage.empty()
 
-        st.altair_chart(lcChart)
+
+
+        # col_8, col_9 = st.columns(2)
+
+        # col_8.write(cm.style.set_properties(**{'text-align': 'center'}).to_html(),
+        #          unsafe_allow_html=True)
+        # col_9.write(metrics.to_html(),
+        #          unsafe_allow_html=True)
+        #
+        # tempMessage.empty()
+        #
+        # st.altair_chart(lcChart)
 
         # st.write(cm.style.set_properties(**{'text-align': 'center'}).to_html(),
         #          unsafe_allow_html=True)

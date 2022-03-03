@@ -282,7 +282,7 @@ def ee_export_image(image, filename, scale, region, crs=None):
         print(e)
 
 
-def loadRaster(imgScale, fileName, image, geometry):
+def downloadRaster(imgScale, image, geometry):
     """
     Downloads an ee.Image as a raster at a given spatial resolutions over an ee.Geometry
     """
@@ -296,28 +296,29 @@ def loadRaster(imgScale, fileName, image, geometry):
     for i in range(numTries):
         try:
             ee_export_image(image=image,
-                            filename=fileName,
+                            filename="raster.tif",
                             scale=imgScale[i],
                             region=geometry)
-            if fileName in os.listdir():
+            if "raster.tif" in os.listdir():
                 break
         except Exception:
             continue
 
 
-def rasterToParquet(path):
+def rasterToParquet():
     colNames = ['SR_B1','SR_B2','SR_B3','SR_B4','SR_B5','SR_B6','SR_B7',
                 'burnSeverity','dNBR','NDVI','elevation','pr','rmax','rmin',
                 'sph','srad','th','tmmn','tmmx','vs','erc','eto','bi','fm100',
                 'fm1000','etr','vpd','percent_tree_cover','landCover','landCoverViz']
 
     # savePath = path.replace(".tif", ".csv")
-    savePath = path.replace(".tif", ".parquet")
+    # savePath = path.replace(".tif", ".parquet")
     intCols = colNames[:11] + colNames[-3:]
     floatCols = colNames[11:-3]
     colNames = {index:value for index, value in enumerate(colNames)}
 
-    img, data = rio.open(path), {}
+    # img, data = rio.open(path), {}
+    img, data = rio.open("raster.tif"), {}
     st.session_state["rasterDims"] = [img.height, img.width]
     img = img.read()
     for index, val in colNames.items():
@@ -334,7 +335,7 @@ def rasterToParquet(path):
         df.loc[df["burnSeverity"] <= 0, "burnSeverity"] = imputeValues
 
     df[intCols] = df[intCols].astype(int)
-    df.to_parquet(savePath)
+    df.to_parquet("raster.parquet")
 
 
 def burnSeverityImage(data, dim, fileName):

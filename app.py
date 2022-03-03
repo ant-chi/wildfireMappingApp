@@ -9,7 +9,7 @@ import os
 import time
 import folium
 # from folium import plugins
-from PIL import Image
+# from PIL import Image
 from funcs import *
 
 
@@ -21,24 +21,23 @@ geemap.ee_initialize()
 df = loadData()
 models = loadModels()
 
-# st.write(os.listdir())
 
 # initialize session states
 if "idLst" not in st.session_state:
-    st.session_state["idLst"] = [0]      # track changes in selected fire to avoid requerying data
+    st.session_state["idLst"] = [0]          # track changes in selected fire to avoid requerying data
 if "currentIndex" not in st.session_state:
     st.session_state["currentIndex"] = 0     # tracks current fire ID's position in session state
 if "eeObjects" not in st.session_state:
-    st.session_state["eeObjects"] = None      # stores necessary EE objects if data is queried
+    st.session_state["eeObjects"] = None     # stores necessary EE objects if data is queried
 if "rasterDims" not in st.session_state:
     st.session_state["rasterDims"] = None
 
-# Viz params
-l8_viz = {"bands": ["SR_B7", "SR_B5", "SR_B3"],
+# ee viz params
+l8_432 = {"bands": ["SR_B4", "SR_B3", "SR_B2"],
           "gamma": [1.1, 1.1, 1],
           "min": 1000, "max": 25000}
 
-l8_rgb = {"bands": ["SR_B4", "SR_B3", "SR_B2"],
+l8_753 = {"bands": ["SR_B7", "SR_B5", "SR_B3"],
           "gamma": [1.1, 1.1, 1],
           "min": 1000, "max": 25000}
 
@@ -139,7 +138,7 @@ if mapFireSubmit:
     if idLst[currentIndex-1] != idLst[currentIndex] or len(idLst)==2:
         tempMessage.write("#### Querying data.....")
 
-        # delete saved files 
+        # delete saved files
         for i in os.listdir():
             if os.path.splitext(i)[1] in [".tif", ".csv", ".xml", ".png", ".parquet"]:
                 os.remove(i)
@@ -153,8 +152,8 @@ if mapFireSubmit:
         # Download raster from EE and convert to parquet
         # loadRaster([30, 60, 90, 120, 150], fileName, combined, fireGeometry)
         # rasterToParquet(fileName)
-        loadRaster([30, 60, 90, 120, 150], "raster.tif", combined, fireGeometry)
-        rasterToParquet("raster.tif")
+        downloadRaster([30, 60, 90, 120, 150], combined, fireGeometry)
+        rasterToParquet()
 
     else: # access session_state variables
         preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
@@ -162,9 +161,7 @@ if mapFireSubmit:
 
     with st.container():
         tempMessage.write("#### Running model and rendering map.....")
-        # fireData = dfSubset[dfSubset["ID"]==fireID]
-        # fireBounds = list(fireData["geometry"].bounds.values[0])
-
+        
         # df = pd.read_parquet("{}.parquet".format(fireID))
         df = pd.read_parquet("raster.parquet")
         modelData = prepData(df[['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7',
@@ -186,11 +183,11 @@ if mapFireSubmit:
                    legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
                                         ["None"]+burn_viz["palette"]+["None"]+nlcd_viz["palette"])))
 
-        m.addLayer(preFireL8, l8_rgb, "Pre-Fire RGB")
-        m.addLayer(postFireL8, l8_rgb, "Post-Fire RGB")
+        m.addLayer(preFireL8, l8_432, "Pre-Fire RGB")
+        m.addLayer(postFireL8, l8_432, "Post-Fire RGB")
 
-        m.addLayer(preFireL8, l8_viz, "Pre-Fire (753)")
-        m.addLayer(postFireL8, l8_viz, "Post-Fire (753)")
+        m.addLayer(preFireL8, l8_753, "Pre-Fire (753)")
+        m.addLayer(postFireL8, l8_753, "Post-Fire (753)")
 
         m.addLayer(combined.clip(fireGeometry), nlcd_viz, "Land Cover")
 
@@ -219,19 +216,19 @@ if mapFireSubmit:
         metrics = metrics.style.format(subset=["Precision (%)", "Recall (%)", "F1 (%)"],
                                        formatter="{:.2f}").set_properties(**{'text-align': 'center'})
 
+        tempMessage.empty()
+
         emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.75,1])
         with col_7:
+            st.write("#### {} Accuracy: {}%".format(modelKey, np.round(100*np.mean(labels==predictions), 2)))
             m.to_streamlit(height=670, width=600, scrolling=True)
 
-        # with st.container()
-            st.write("#### {} Accuracy: {}%".format(modelKey, np.round(100*np.mean(labels==predictions), 2)))
             st.write(cm.style.set_properties(**{'text-align': 'center'}).to_html(),
                      unsafe_allow_html=True)
             st.write(metrics.to_html(),
                      unsafe_allow_html=True)
             st.altair_chart(lcChart)
 
-        tempMessage.empty()
 
 
 

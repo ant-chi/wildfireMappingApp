@@ -1,5 +1,7 @@
 --find-links=https://girder.github.io/large_image_wheels GDAL
 geopandas
+palettable
+localtileserver
 streamlit
 streamlit-folium
 scikit-learn

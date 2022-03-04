@@ -70,13 +70,13 @@ st.markdown(
 )
 
 
-# with st.sidebar:
-#     st.write("# How does this app work?")
+with st.sidebar:
+    st.write("# How does this app work?")
 #     st.video("https://www.youtube.com/watch?v=5qap5aO4i9A")
 #
-#     st.write("# Project Details")
-#     st.write("## [Visit our project repo!](https://github.com/a2lu/CAPSTONE_WILDFIRE)")
-#     st.write("## [Visit our site for more details on this project!](https://cashcountinchi.github.io/b12_capstone/)")
+    st.write("# Project Details")
+    st.write("## [Visit our project repo!](https://github.com/a2lu/CAPSTONE_WILDFIRE)")
+    st.write("## [Visit our site for more details on this project!](https://cashcountinchi.github.io/b12_capstone/)")
 
 
 with st.container():

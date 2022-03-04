@@ -53,6 +53,39 @@ monthMap = {1: "January", 2: "February", 3: "March", 4: "April", 5: "May", 6: "J
             8: "August", 9: "September", 10: "October", 11: "November", 12: "December"}
 
 
+st.markdown(
+    """
+    <style>
+    [data-testid="stSidebar"][aria-expanded="true"] > div:first-child {
+        width: 500px;
+    }
+    [data-testid="stSidebar"][aria-expanded="false"] > div:first-child {
+        width: 500px;
+        margin-left: -500px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+
+with st.sidebar:
+    st.write("# How does this app work?")
+    st.video("https://www.youtube.com/watch?v=5qap5aO4i9A")
+
+    st.write("# Project Details")
+    st.write("## [Visit our project repo!](https://github.com/a2lu/CAPSTONE_WILDFIRE)")
+    st.write("## [Visit our site for more details on this project!](https://cashcountinchi.github.io/b12_capstone/)")
+
+    # st.info("[Visit our project repo!](https://github.com/a2lu/CAPSTONE_WILDFIRE) \n [Visit our site for more details on this project!](https://cashcountinchi.github.io/b12_capstone/)")
+
+
+    # with st.info():
+    #     st.write("[Visit our project repo!](https://github.com/a2lu/CAPSTONE_WILDFIRE)")
+    #
+    #     st.write("[Visit our site for more details on this project!](https://cashcountinchi.github.io/b12_capstone/)")
+
 with st.container():
     st.write("## Filter Fires")
     col_1, emptyCol_1, col_2 = st.columns([5, 1, 5])
@@ -161,7 +194,7 @@ if mapFireSubmit:
 
     with st.container():
         tempMessage.write("#### Running model and rendering map.....")
-        
+
         # df = pd.read_parquet("{}.parquet".format(fireID))
         df = pd.read_parquet("raster.parquet")
         modelData = prepData(df[['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7',

@@ -53,6 +53,7 @@ monthMap = {1: "January", 2: "February", 3: "March", 4: "April", 5: "May", 6: "J
             8: "August", 9: "September", 10: "October", 11: "November", 12: "December"}
 
 
+# changes sidebar width
 st.markdown(
     """
     <style>
@@ -78,13 +79,6 @@ with st.sidebar:
     st.write("## [Visit our project repo!](https://github.com/a2lu/CAPSTONE_WILDFIRE)")
     st.write("## [Visit our site for more details on this project!](https://cashcountinchi.github.io/b12_capstone/)")
 
-    # st.info("[Visit our project repo!](https://github.com/a2lu/CAPSTONE_WILDFIRE) \n [Visit our site for more details on this project!](https://cashcountinchi.github.io/b12_capstone/)")
-
-
-    # with st.info():
-    #     st.write("[Visit our project repo!](https://github.com/a2lu/CAPSTONE_WILDFIRE)")
-    #
-    #     st.write("[Visit our site for more details on this project!](https://cashcountinchi.github.io/b12_capstone/)")
 
 with st.container():
     st.write("## Filter Fires")

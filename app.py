@@ -72,7 +72,7 @@ st.markdown(
 
 with st.sidebar:
     st.write("# How does this app work?")
-#     st.video("https://www.youtube.com/watch?v=5qap5aO4i9A")
+    st.video("https://www.youtube.com/watch?v=5qap5aO4i9A")
 #
     st.write("# Project Details")
     st.write("## [Visit our project repo!](https://github.com/a2lu/CAPSTONE_WILDFIRE)")

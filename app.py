@@ -71,6 +71,9 @@ st.markdown(
 
 
 with st.sidebar:
+    # manual = st.radio(label="Manual Fire Mapping",
+    #          options=["No", "Yes"])
+
     st.write("# How does this app work?")
     st.video("https://www.youtube.com/watch?v=5qap5aO4i9A")
 #
@@ -78,6 +81,8 @@ with st.sidebar:
     st.write("## [Visit our project repo!](https://github.com/a2lu/CAPSTONE_WILDFIRE)")
     st.write("## [Visit our site for more details on this project!](https://cashcountinchi.github.io/b12_capstone/)")
 
+
+# if not manual:
 
 with st.container():
     st.write("## Filter Fires")
@@ -134,8 +139,8 @@ with st.form("Map Fire"):
     selectBoxOptions = formatFireSelectBox(dfSubset)
 
     fireID = col_5.selectbox(label="Select Fire to Map",
-                          options=list(selectBoxOptions.keys()),
-                          format_func=lambda x: selectBoxOptions[x])
+                             options=list(selectBoxOptions.keys()),
+                             format_func=lambda x: selectBoxOptions[x])
 
     modelKey = col_6.selectbox(label="Select Supervised Classifier",
                                options=list(models.keys()),
@@ -149,9 +154,7 @@ if mapFireSubmit:
     fireData = dfSubset[dfSubset["ID"]==fireID]
     fireBounds = list(fireData["geometry"].bounds.values[0])
 
-    # with winterWarning:
     if list(fireData["Contained Month"])[0] in [11,12,1,2]:
-            # winterWarning.clear()
         st.warning("##### Snow and seasonal changes in vegetation can produce \
         inaccurate/skewed results for winter fires.")
 

@@ -10,6 +10,8 @@ from shapely.geometry import Polygon
 import os
 import altair as alt
 import rasterio as rio
+# from functools import reduce
+# from operator import iconcat
 
 import pickle
 import joblib
@@ -28,9 +30,6 @@ import matplotlib.pyplot as plt
 
 @st.cache(allow_output_mutation=True, suppress_st_warning=True)
 def loadData():
-    """
-    Loads fire data and caches result with streamlit
-    """
     fires = gpd.read_file("data/norCalFires.geojson")
     fires["Start"] = pd.DatetimeIndex(fires["Start"])
     fires["End"] = pd.DatetimeIndex(fires["End"])
@@ -41,9 +40,6 @@ def loadData():
 
 @st.cache(allow_output_mutation=True, suppress_st_warning=True)
 def loadModels():
-    """
-    Stores trained models in a dictionary and caches result with streamlit
-    """
     models = dict()
 
     models["Logistic Regression"] = pickle.load(open("models/logistic_regression.sav", 'rb'))
@@ -58,21 +54,48 @@ def loadModels():
 
     models["SVM"] = joblib.load(open("models/svc.pkl", "rb"))
     models["log_boost"] = joblib.load(open("models/log_boost.pkl", "rb"))
+    models["tree_boost"] = joblib.load(open("models/tree_boost.pkl", "rb"))
     return models
 
 
-def updateIdState(fireID):
-    """
-    Update app
-    """
-    st.session_state['idLst'].append(fireID)
-    st.session_state['currentIndex'] += 1
+def prepData(data):
+    scaler = preprocessing.StandardScaler().fit(data.values)
+    return scaler.transform(data)
 
-    return st.session_state['idLst'], st.session_state['currentIndex']
 
-def updateEE(preFireImage, postFireImage, combined, geometry):
+def modelMetrics(labels, predictions):
+    cm = confusion_matrix(labels, predictions)
+    predictedTotal = np.sum(cm, axis = 0)
+    actualTotal = list(np.sum(cm, axis = 1)) + [None]
 
-    st.session_state["eeAssets"] = [preFireImage, postFireImage, combined, geometry]
+    precision = np.diag(cm) / np.sum(cm, axis = 0)
+    recall = np.diag(cm) / np.sum(cm, axis = 1)
+    f1 = np.round(100*(2*(precision * recall) / (precision + recall)), 2)
+
+    precision = np.round(100*precision, 2)
+    recall = np.round(100*recall, 2)
+
+    # precision = np.round(100*(np.diag(cm) / np.sum(cm, axis = 0)), 2)
+    # recall = np.round(100*(np.diag(cm) / np.sum(cm, axis = 1)), 2)
+    # f1 = (2*(precision * recall) / (precision + recall))
+
+    cm = np.vstack((cm, predictedTotal))
+    cm = np.hstack((cm, np.array(actualTotal).reshape(len(actualTotal),1)))
+
+    cm = pd.DataFrame(cm)
+
+    bsMap = {1: "Vegetation Growth", 2: "Unburned", 3: "Low", 4: "Moderate", 5: "High"}
+    columns = [bsMap[i] for i in range(1, len(cm.columns[:-1])+1)]
+    index = [bsMap[i] for i in range(1, len(cm.index[:-1])+1)]
+
+    cm.columns = columns + ["Predicted Total"]
+    cm.index = index + ["Actual Total"]
+    # cm.index.name, cm.columns.name = "Actual", "Predicted"
+
+    metrics = pd.DataFrame({"Precision (%)": precision, "Recall (%)": recall, "F1 (%)": f1})
+    metrics.index = index
+
+    return cm.fillna(0), metrics.fillna(0)
 
 
 def bbox(x):
@@ -92,7 +115,7 @@ def bbox(x):
 
 def convertDate(date):
     """
-    Converts EE.Date or unix date (in milliseconds) to Y-M-D formst
+    Converts EE.Date or unix date to Y-M-D formst
     """
     if isinstance(date, ee.Date):
         date = date.getInfo()["value"]
@@ -100,17 +123,21 @@ def convertDate(date):
     return datetime.utcfromtimestamp(date/1000).strftime("%Y-%m-%d")# %H:%M:%S')
 
 
-def formatFireSelectBox(data):
-    """
+def updateIdState(fireID):
+    st.session_state['idLst'].append(fireID)
+    st.session_state['currentIndex'] += 1
 
-    """
+    return st.session_state['idLst'], st.session_state['currentIndex']
+
+def updateEE(preFireImage, postFireImage, combined, geometry):
+    st.session_state["eeAssets"] = [preFireImage, postFireImage, combined, geometry]
+
+
+def formatFireSelectBox(data):
     return {k: "{} ({})".format(v1, v2) for k, v1, v2 in data[["ID", "Fire", "Year"]].sort_values(by="Fire").values}
 
 
 def subsetFires(data, startYear, endYear, containedMonths, sizeClass, counties):
-    """
-    Subsets fire data based on user defined query parameters
-    """
     if startYear == endYear:
         st.error("### Select valid time interval")
     else:
@@ -129,6 +156,7 @@ def subsetFires(data, startYear, endYear, containedMonths, sizeClass, counties):
 
 
 # def getLandsatImages():
+
 
 
 def prepImages(fireGPD):
@@ -282,10 +310,7 @@ def ee_export_image(image, filename, scale, region, crs=None):
         print(e)
 
 
-def downloadRaster(imgScale, image, geometry):
-    """
-    Downloads an ee.Image as a raster at a given spatial resolutions over an ee.Geometry
-    """
+def loadRaster(imgScale, fileName, image, geometry):
     try:
         image.bandNames().size().getInfo()
     except Exception as e:
@@ -296,29 +321,28 @@ def downloadRaster(imgScale, image, geometry):
     for i in range(numTries):
         try:
             ee_export_image(image=image,
-                            filename="raster.tif",
+                            filename=fileName,
                             scale=imgScale[i],
                             region=geometry)
-            if "raster.tif" in os.listdir():
+            if fileName in os.listdir():
                 break
         except Exception:
             continue
 
 
-def rasterToParquet():
+def rasterToParquet(path):
     colNames = ['SR_B1','SR_B2','SR_B3','SR_B4','SR_B5','SR_B6','SR_B7',
                 'burnSeverity','dNBR','NDVI','elevation','pr','rmax','rmin',
                 'sph','srad','th','tmmn','tmmx','vs','erc','eto','bi','fm100',
                 'fm1000','etr','vpd','percent_tree_cover','landCover','landCoverViz']
 
     # savePath = path.replace(".tif", ".csv")
-    # savePath = path.replace(".tif", ".parquet")
+    savePath = path.replace(".tif", ".parquet")
     intCols = colNames[:11] + colNames[-3:]
     floatCols = colNames[11:-3]
     colNames = {index:value for index, value in enumerate(colNames)}
 
-    # img, data = rio.open(path), {}
-    img, data = rio.open("raster.tif"), {}
+    img, data = rio.open(path), {}
     st.session_state["rasterDims"] = [img.height, img.width]
     img = img.read()
     for index, val in colNames.items():
@@ -335,25 +359,18 @@ def rasterToParquet():
         df.loc[df["burnSeverity"] <= 0, "burnSeverity"] = imputeValues
 
     df[intCols] = df[intCols].astype(int)
-    df.to_parquet("raster.parquet")
+    df.to_parquet(savePath)
 
 
-def burnSeverityImage(data, dim, fileName):
-    """
-    Produces a burn severity image from raster data
-
-    Args:
-        data: raster data
-        dim: height and width of output image
-    """
+def predictedImage(predictions, dim):
     cmapDict = {1:'#706C1E', 2:'#4E9D5C', 3:'#FFF70B', 4:'#FF641B', 5:'#A41FD6'}
-
-    # remapped cmap for issue with oscar's models
-    cmap = colors.ListedColormap([cmapDict[i] for i in sorted(set(data))])
+    # cmap = colors.ListedColormap(['#706C1E', '#4E9D5C', '#FFF70B', '#FF641B', '#A41FD6'])
+    # use remapped cmap for issue with oscar's models
+    cmap = colors.ListedColormap([cmapDict[i] for i in sorted(set(predictions))])
     height, width = dim
-    image = plt.imshow(data.reshape(height, width), cmap=cmap)
+    image = plt.imshow(predictions.reshape(height, width), cmap=cmap)
     plt.axis("off")
-    plt.savefig(fileName, transparent=True, bbox_inches='tight', pad_inches=0)
+    plt.savefig("image.png", transparent=True, bbox_inches='tight', pad_inches=0)
 
 
 def add_legend(map, legend_dict=None, opacity=1.0):
@@ -410,58 +427,8 @@ def add_legend(map, legend_dict=None, opacity=1.0):
     return map.get_root().add_child(macro)
 
 
-def prepData(data):
-    scaler = preprocessing.StandardScaler().fit(data.values)
-    return scaler.transform(data)
-
-
-def modelMetrics(labels, predictions):
-    """
-    Returns a confusion matrix and table with precision, recall, and f1 scores.
-
-    Args:
-        labels: array of actual burn severity values
-        predictions: array of predicted burn severity values
-    """
-    cm = confusion_matrix(labels, predictions)
-    predictedTotal = np.sum(cm, axis = 0)
-    actualTotal = list(np.sum(cm, axis = 1)) + [None]
-
-    precision = np.diag(cm) / np.sum(cm, axis = 0)
-    recall = np.diag(cm) / np.sum(cm, axis = 1)
-    f1 = np.round(100*(2*(precision * recall) / (precision + recall)), 2)
-
-    precision = np.round(100*precision, 2)
-    recall = np.round(100*recall, 2)
-
-    # precision = np.round(100*(np.diag(cm) / np.sum(cm, axis = 0)), 2)
-    # recall = np.round(100*(np.diag(cm) / np.sum(cm, axis = 1)), 2)
-    # f1 = (2*(precision * recall) / (precision + recall))
-
-    cm = np.vstack((cm, predictedTotal))
-    cm = np.hstack((cm, np.array(actualTotal).reshape(len(actualTotal),1)))
-
-    cm = pd.DataFrame(cm)
-
-    bsMap = {1: "Vegetation Growth", 2: "Unburned", 3: "Low", 4: "Moderate", 5: "High"}
-    columns = [bsMap[i] for i in range(1, len(cm.columns[:-1])+1)]
-    index = [bsMap[i] for i in range(1, len(cm.index[:-1])+1)]
-
-    cm.columns = columns + ["Predicted Total"]
-    cm.index = index + ["Actual Total"]
-    # cm.index.name, cm.columns.name = "Actual", "Predicted"
-
-    metrics = pd.DataFrame({"Precision (%)": precision, "Recall (%)": recall, "F1 (%)": f1})
-    metrics.index = index
-
-    return cm.fillna(0), metrics.fillna(0)
-
-
 
 def altChart(data):
-    """
-
-    """
     # bsMap = {1: "Vegetation Growth", 2: "Unburned", 3: "Low", 4: "Moderate", 5: "High"}
     lcMap = {1: "Other", 2: "Developed", 3: "Forest", 4: "Shrub", 5: "Grassland", 6: "Agriculture"}
 

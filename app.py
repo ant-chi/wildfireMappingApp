@@ -11,7 +11,7 @@ import folium
 # from folium import plugins
 from PIL import Image
 from funcs import *
-
+from jinja2 import Template
 
 st.set_page_config(layout="wide", page_title="INSERT TITLE", page_icon=":earth_americas:")
 
@@ -109,17 +109,21 @@ with st.form("Map Fire"):
     selectBoxOptions = formatFireSelectBox(dfSubset)
 
     fireID = col_5.selectbox(label="Select Fire to Map",
-                          options=list(selectBoxOptions.keys()),
-                          format_func=lambda x: selectBoxOptions[x])
+                          options=list(selectBoxOptions.keys()) + ['custom'],
+                          format_func=lambda x: x if x=='custom' else selectBoxOptions[x])
 
     modelKey = col_6.selectbox(label="Select Supervised Classifier",
                                options=list(models.keys()),
                                on_change=None)
 
     mapFireSubmit = st.form_submit_button("Map Fire")
-
+tainer = st.container()
+if not mapFireSubmit:
+    m = geemap.Map(add_google_map = False)
+    m.to_streamlit(height=670, width=600, scrolling=True)
 
 if mapFireSubmit:
+    
     startTime = time.time()
     fireData = dfSubset[dfSubset["ID"]==fireID]
     fireBounds = list(fireData["geometry"].bounds.values[0])
@@ -156,7 +160,7 @@ if mapFireSubmit:
         preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
 
 
-    with st.container():
+    with tainer:
         tempMessage.write("#### Running model and rendering map.....")
         # fireData = dfSubset[dfSubset["ID"]==fireID]
         # fireBounds = list(fireData["geometry"].bounds.values[0])
@@ -168,7 +172,7 @@ if mapFireSubmit:
 
         labels, predictions = df["burnSeverity"], model.predict(modelData)
         # st.write(pd.Series(predictions).value_counts())
-        if modelKey in ["log_boost", "SVM"]:
+        if modelKey in ["log_boost", "SVM", "tree_boost"]:
             predictions = predictions + 1
 
         # st.write(pd.Series(predictions).value_counts())
@@ -189,7 +193,7 @@ if mapFireSubmit:
 
         m.addLayer(combined.clip(fireGeometry), nlcd_viz, "Land Cover")
         m.addLayer(combined.clip(fireGeometry), burn_viz, "Burn Severity")
-
+        
         # adds png of predicted image to folium map
         png = folium.raster_layers.ImageOverlay(name='Predicted Burn Severity',
                                                 image="image.png",

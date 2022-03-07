@@ -54,6 +54,7 @@ def loadModels():
 
     models["SVM"] = joblib.load(open("models/svc.pkl", "rb"))
     models["log_boost"] = joblib.load(open("models/log_boost.pkl", "rb"))
+    models["tree_boost"] = joblib.load(open("models/tree_boost.pkl", "rb"))
     return models
 
 

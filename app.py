@@ -8,9 +8,11 @@ import geemap.foliumap as fmap
 import os
 import time
 import folium
+
+from datetime import date, timedelta
 # from folium import plugins
 # from PIL import Image
-from funcs import *
+from testFuncs import *
 
 
 st.set_page_config(layout="wide", page_title="INSERT TITLE", page_icon=":earth_americas:")
@@ -21,12 +23,6 @@ geemap.ee_initialize()
 df = loadData()
 models = loadModels()
 
-
-# initialize session states
-if "idLst" not in st.session_state:
-    st.session_state["idLst"] = [0]          # track changes in selected fire to avoid requerying data
-if "currentIndex" not in st.session_state:
-    st.session_state["currentIndex"] = 0     # tracks current fire ID's position in session state
 if "eeObjects" not in st.session_state:
     st.session_state["eeObjects"] = None     # stores necessary EE objects if data is queried
 if "rasterDims" not in st.session_state:
@@ -35,11 +31,11 @@ if "rasterDims" not in st.session_state:
 # ee viz params
 l8_432 = {"bands": ["SR_B4", "SR_B3", "SR_B2"],
           "gamma": [1.1, 1.1, 1],
-          "min": 1000, "max": 25000}
+          "min": 2000, "max": 30000}
 
 l8_753 = {"bands": ["SR_B7", "SR_B5", "SR_B3"],
-          "gamma": [1.1, 1.1, 1],
-          "min": 1000, "max": 25000}
+          "gamma": [1, 1.1, 1],
+          "min": 1500, "max": 25000}
 
 burn_viz = {"bands": ["burnSeverity"],
             "palette": ["706c1e", "4e9d5c", "fff70b", "ff641b", "a41fd6"],
@@ -69,10 +65,9 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-
 with st.sidebar:
-    # manual = st.radio(label="Manual Fire Mapping",
-    #          options=["No", "Yes"])
+    manual = st.checkbox(label="Manual Fire Mapping",
+                         value=False)
 
     st.write("# How does this app work?")
     st.video("https://www.youtube.com/watch?v=5qap5aO4i9A")
@@ -82,116 +77,216 @@ with st.sidebar:
     st.write("## [Visit our site for more details on this project!](https://cashcountinchi.github.io/b12_capstone/)")
 
 
-# if not manual:
+if manual:
+    st.write("### Manual")
 
-with st.container():
-    st.write("## Filter Fires")
-    col_1, emptyCol_1, col_2 = st.columns([5, 1, 5])
-    col_3, emptyCol_2, col_4 = st.columns([5, 1, 5])
+    col_1, col_2 = st.columns(2)
+
+    if "idLst" in st.session_state:
+        del st.session_state["idLst"]
+    if "currentIndex" in st.session_state:
+        del st.session_state["currentIndex"]
+
+
+    if "widgetState" not in st.session_state:
+        st.session_state["widgetState"] = [np.array([0,0,0])]
+    if "currentState" not in st.session_state:
+        st.session_state["currentState"] = 0
+
+    # emptyCol_1, col_1, emptyCol_2 = st.columns([1,3.75,1])
+    drawMap = fmap.Map(add_google_map=False,
+                       plugin_Draw=True,
+                       draw_export=True,
+                       locate_control=True,
+                       plugin_LatLngPopup=True)
+
+    drawMap.set_center(-121.15, 40.25, 6.5)
 
     with col_1:
-        startYear, endYear = st.select_slider(label="Year",
-                                              options=[i for i in range(2013, 2022)],
-                                              value=[2013, 2021],
-                                              on_change=None)
+        drawMap.to_streamlit(height=500, width=500)
+
     with col_2:
-        endMonths = st.multiselect(label="Fire Containment Month",
-                                   options=list(monthMap.keys()),
-                                   format_func=lambda x: monthMap[x],
-                                   default=[6, 7, 8, 9],
-                                   help="Month that a fire is contained/extinguished.\
-                                   \n Recommended months are June-October.")
-    with col_3:
-        counties = st.multiselect(label="County",
-                                  options=sorted(df["County"].unique()),
-                                  default=["Humboldt", "Lassen", "Mendocino",
-                                           "Modoc", "Shasta", "Siskiyou"],
-                                  on_change=None,
-                                  help="Counties in Northern California")
+        with st.form(" "):
+            modelKey = st.selectbox(label="Select Supervised Classifier",
+                                       options=list(models.keys()),
+                                       on_change=None)
 
-    with col_4:
-        sizeClasses = st.multiselect(label="Size Class",
-                                     options=["E", "F", "G",
-                                              "H", "I", "J+"],
-                                     default=["H", "I", "J+"],
-                                     on_change=None,
-                                     help="National Wildfire Coordination Group (NWCG) wildfire size classes\
-                                     \n E: 300-999 acres\
-                                     \n F: 1000-4999 acres\
-                                     \n G: 5000-9999 acres\
-                                     \n H: 10000-49999 acres\
-                                     \n I: 50000-99999 acres\
-                                     \n J+: 100000+ acres")
+            geoFile = st.file_uploader(label="Upload a geometry file",
+                                       type=["geojson", "kml", "zip"],
+                                       accept_multiple_files=False)
 
-dfSubset = subsetFires(df, startYear, endYear, endMonths, sizeClasses, counties)
-st.write("#### {} fires in query".format(dfSubset.shape[0]))
+            start = st.date_input(label="Fire Start Date",
+                                  value=date.fromisoformat("2021-08-10"),
+                                  min_value=date.fromisoformat("2013-03-19"),
+                                  max_value=date.today() + timedelta(weeks=-1),
+                                  help="Select the starting date of a fire. (Must be a valid date for Landsat 8 images) \
+                                  \n For more information on Landsat 8: \
+                                  https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LC08_C02_T1_L2#description")
 
-with st.expander("View fire data"):
-    temp = dfSubset[["Fire", "County", "Start", "End", "Acres", "Size Class"]]
-    temp["Start"] = temp["Start"].apply(lambda x: str(x)[:10])
-    temp["End"] = temp["End"].apply(lambda x: str(x)[:10])
+            end = st.date_input(label="Fire End Date",
+                                value=date.fromisoformat("2021-09-10"),
+                                  min_value=date.fromisoformat("2013-03-19"),
+                                  max_value=date.today() + timedelta(weeks=-1),
+                                  help="Select the end date of a fire. (Must be a valid date for Landsat 8 images) \
+                                  \n For more information on Landsat 8: \
+                                  https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LC08_C02_T1_L2#description")
 
-    st.write(temp)
+            mapFireSubmit = st.form_submit_button("Map Fire")
+
+else:
+    if "widgetState" in st.session_state:
+        del st.session_state["widgetState"]
+    if "currentState" in st.session_state:
+        del st.session_state["currentState"]
+
+    if "idLst" not in st.session_state:
+        st.session_state["idLst"] = [0]          # track changes in selected fire to avoid requerying data
+    if "currentIndex" not in st.session_state:
+        st.session_state["currentIndex"] = 0     # tracks current fire ID's position in session state
 
 
-with st.form("Map Fire"):
-    col_5, emptyCol_2, col_6 = st.columns([5, 1, 5])
-    selectBoxOptions = formatFireSelectBox(dfSubset)
+    with st.container():
+        st.write("## Filter Fires")
+        col_1, emptyCol_1, col_2 = st.columns([5, 1, 5])
+        col_3, emptyCol_2, col_4 = st.columns([5, 1, 5])
 
-    fireID = col_5.selectbox(label="Select Fire to Map",
-                             options=list(selectBoxOptions.keys()),
-                             format_func=lambda x: selectBoxOptions[x])
+        with col_1:
+            startYear, endYear = st.select_slider(label="Year",
+                                                  options=[i for i in range(2013, 2022)],
+                                                  value=[2013, 2021],
+                                                  on_change=None)
+        with col_2:
+            endMonths = st.multiselect(label="Fire Containment Month",
+                                       options=list(monthMap.keys()),
+                                       format_func=lambda x: monthMap[x],
+                                       default=[6, 7, 8, 9],
+                                       help="Month that a fire is contained/extinguished.\
+                                       \n Recommended months are June-October.")
+        with col_3:
+            counties = st.multiselect(label="County",
+                                      options=sorted(df["County"].unique()),
+                                      default=["Humboldt", "Lassen", "Mendocino",
+                                               "Modoc", "Shasta", "Siskiyou"],
+                                      on_change=None,
+                                      help="Counties in Northern California")
 
-    modelKey = col_6.selectbox(label="Select Supervised Classifier",
-                               options=list(models.keys()),
-                               on_change=None)
+        with col_4:
+            sizeClasses = st.multiselect(label="Size Class",
+                                         options=["E", "F", "G",
+                                                  "H", "I", "J+"],
+                                         default=["H", "I", "J+"],
+                                         on_change=None,
+                                         help="National Wildfire Coordination Group (NWCG) wildfire size classes\
+                                         \n E: 300-999 acres\
+                                         \n F: 1000-4999 acres\
+                                         \n G: 5000-9999 acres\
+                                         \n H: 10000-49999 acres\
+                                         \n I: 50000-99999 acres\
+                                         \n J+: 100000+ acres")
 
-    mapFireSubmit = st.form_submit_button("Map Fire")
+    dfSubset = subsetFires(df, startYear, endYear, endMonths, sizeClasses, counties)
+    st.write("#### {} fires in query".format(dfSubset.shape[0]))
 
+    with st.expander("View fire data"):
+        temp = dfSubset[["Fire", "County", "Start", "End", "Acres", "Size Class"]]
+        temp["Start"] = temp["Start"].apply(lambda x: str(x)[:10])
+        temp["End"] = temp["End"].apply(lambda x: str(x)[:10])
+
+        st.write(temp)
+
+    with st.form("Map Fire"):
+        col_5, emptyCol_2, col_6 = st.columns([5, 1, 5])
+        selectBoxOptions = formatFireSelectBox(dfSubset)
+
+        fireID = col_5.selectbox(label="Select Fire to Map",
+                                 options=list(selectBoxOptions.keys()),
+                                 format_func=lambda x: selectBoxOptions[x])
+
+        modelKey = col_6.selectbox(label="Select Supervised Classifier",
+                                   options=list(models.keys()),
+                                   on_change=None)
+
+        mapFireSubmit = st.form_submit_button("Map Fire")
+
+##############################
+# Shared code
+##############################
 
 if mapFireSubmit:
     startTime = time.time()
-    fireData = dfSubset[dfSubset["ID"]==fireID]
-    fireBounds = list(fireData["geometry"].bounds.values[0])
-
-    if list(fireData["Contained Month"])[0] in [11,12,1,2]:
-        st.warning("##### Snow and seasonal changes in vegetation can produce \
-        inaccurate/skewed results for winter fires.")
-
     model = models[modelKey]
-
-    # Tracks if fireID has changed. If not, data will be accessed from previous session state
-    idLst, currentIndex = updateIdState(fireID)
     tempMessage = st.empty()
 
-    if idLst[currentIndex-1] != idLst[currentIndex] or len(idLst)==2:
-        tempMessage.write("#### Querying data.....")
 
-        # delete saved files
-        for i in os.listdir():
-            if os.path.splitext(i)[1] in [".tif", ".csv", ".xml", ".png", ".parquet"]:
-                os.remove(i)
+    if not manual:
+        fireData = dfSubset[dfSubset["ID"]==fireID]
+        fireBounds = list(fireData["geometry"].bounds.values[0])
+        if list(fireData["Contained Month"])[0] in [11,12,1,2]:
+            st.warning("##### Snow and seasonal changes in vegetation can produce \
+            inaccurate/skewed results for winter fires.")
 
-        st.session_state["eeObjects"] = prepImages(dfSubset[dfSubset["ID"]==fireID])
-        preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
+        # Tracks if fireID has changed. If not, data will be accessed from previous session state
+        idLst, currentIndex = updateIdState(fireID)
 
-        # fileName = "{}.tif".format(fireID)
+        if idLst[currentIndex-1] != idLst[currentIndex]:
+            tempMessage.write("#### Querying data.....")
+            for i in os.listdir():
+                if os.path.splitext(i)[1] in [".tif", ".csv", ".xml", ".png", ".parquet"]:
+                    os.remove(i)
 
+            preFireL8, postFireL8, combined, fireGeometry = prepImages(geometry=fireData["geometry"],
+                                                                       startDate=fireData["Start"].values[0],
+                                                                       endDate=fireData["End"].values[0])
+            downloadRaster([30, 60, 90, 120, 150], combined, fireGeometry)
+            # rasterToParquet()
+        else:
+            preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
 
-        # Download raster from EE and convert to parquet
-        # loadRaster([30, 60, 90, 120, 150], fileName, combined, fireGeometry)
-        # rasterToParquet(fileName)
-        downloadRaster([30, 60, 90, 120, 150], combined, fireGeometry)
-        rasterToParquet()
+    if manual:
+        if geoFile is None:
+            st.error("### Must upload a geometry file")
+            st.stop()
+        elif end-start < timedelta(days=0):
+            st.error("### Select a valid, non-overlapping date interval")
+            st.stop()
+        elif not (date.fromisoformat("2013-03-19") < start < date.today() + timedelta(weeks=-1)):
+            st.error("Selected Fire Start Date is invalid. Refer to Landsat 8 image availability here: \
+            https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LC08_C02_T1_L2#description")
+            st.stop()
+        elif not (date.fromisoformat("2013-03-19") < end < date.today() + timedelta(weeks=-1)):
+            st.error("Selected Fire End Date is invalid. Refer to Landsat 8 image availability here: \
+            https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LC08_C02_T1_L2#description")
+            st.stop()
 
-    else: # access session_state variables
-        preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
+        else:
+            if end.month in [11,12,1,2]:
+                st.warning("##### Snow and seasonal changes in vegetation can produce \
+                            inaccurate/skewed results for winter fires.")
+
+            widgetStates, currentState = updateWidgetState([geoFile, start, end])
+            gdf = uploaded_file_to_gdf(geoFile)
+            gdf["geometry"] = gdf["geometry"].apply(lambda x: bbox(x.bounds))
+            fireBounds = list(gdf["geometry"].bounds.values[0])
+
+            if sum(widgetStates[currentState-1] == widgetStates[currentState]) != 3:
+                tempMessage.write("#### Querying data.....")
+                for i in os.listdir():
+                    if os.path.splitext(i)[1] in [".tif", ".csv", ".xml", ".png", ".parquet"]:
+                        os.remove(i)
+
+                preFireL8, postFireL8, combined, fireGeometry = prepImages(geometry=gdf,
+                                                                           startDate=start,
+                                                                           endDate=end)
+
+                downloadRaster([30, 60, 90, 120, 150], combined, fireGeometry)
+                # rasterToParquet()
+            else:
+                preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
 
 
     with st.container():
         tempMessage.write("#### Running model and rendering map.....")
 
-        # df = pd.read_parquet("{}.parquet".format(fireID))
         df = pd.read_parquet("raster.parquet")
         modelData = prepData(df[['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7',
                                  'NDVI','elevation', 'percent_tree_cover', 'landCover']])
@@ -249,7 +344,7 @@ if mapFireSubmit:
 
         emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.75,1])
         with col_7:
-            st.write("#### {} Accuracy: {}%".format(modelKey, np.round(100*np.mean(labels==predictions), 2)))
+            # st.write("#### {} Accuracy: {}%".format(modelKey, np.round(100*np.mean(labels==predictions), 2)))
             m.to_streamlit(height=670, width=600, scrolling=True)
 
             st.write(cm.style.set_properties(**{'text-align': 'center'}).to_html(),
@@ -258,27 +353,6 @@ if mapFireSubmit:
                      unsafe_allow_html=True)
             st.altair_chart(lcChart)
 
-
-
-
-        # col_8, col_9 = st.columns(2)
-
-        # col_8.write(cm.style.set_properties(**{'text-align': 'center'}).to_html(),
-        #          unsafe_allow_html=True)
-        # col_9.write(metrics.to_html(),
-        #          unsafe_allow_html=True)
-        #
-        # tempMessage.empty()
-        #
-        # st.altair_chart(lcChart)
-
-        # st.write(cm.style.set_properties(**{'text-align': 'center'}).to_html(),
-        #          unsafe_allow_html=True)
-        # st.write(metrics.to_html(),
-        #          unsafe_allow_html=True)
-
-        # st.altair_chart(chart_1)
-        # st.altair_chart(chart_2)
 
     st.success("#### Total Runtime: {} seconds".format(np.round((time.time()-startTime), 2)))
 

@@ -5,7 +5,7 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 import time
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from shapely.geometry import Polygon
 import os
 import altair as alt
@@ -31,10 +31,9 @@ def loadData():
     """
     Loads fire data and caches result with streamlit
     """
-    fires = gpd.read_file("data/norCalFires.geojson")
-    fires["Start"] = pd.DatetimeIndex(fires["Start"])
-    fires["End"] = pd.DatetimeIndex(fires["End"])
-
+    fires = gpd.read_file("norCalFires.geojson")
+    fires["Start"] = fires["Start"].apply(lambda x: date.fromisoformat(x))
+    fires["End"] = fires["End"].apply(lambda x: date.fromisoformat(x))
     fires["geometry"] = fires["geometry"].apply(lambda x: bbox(x.bounds))
     return fires
 
@@ -70,9 +69,14 @@ def updateIdState(fireID):
 
     return st.session_state['idLst'], st.session_state['currentIndex']
 
-def updateEE(preFireImage, postFireImage, combined, geometry):
 
-    st.session_state["eeAssets"] = [preFireImage, postFireImage, combined, geometry]
+def updateWidgetState(widgets):
+    """
+    """
+    st.session_state["widgetState"].append(np.array(widgets))
+    st.session_state["currentState"] += 1
+
+    return st.session_state["widgetState"], st.session_state["currentState"]
 
 
 def bbox(x):
@@ -129,26 +133,65 @@ def subsetFires(data, startYear, endYear, containedMonths, sizeClass, counties):
 
 
 # def getLandsatImages():
+@st.cache(allow_output_mutation=True, suppress_st_warning=True)
+def uploaded_file_to_gdf(data):
+    import tempfile
+    import os
+    import uuid
+
+    _, file_extension = os.path.splitext(data.name)
+    file_id = str(uuid.uuid4())
+    file_path = os.path.join(tempfile.gettempdir(), f"{file_id}{file_extension}")
+
+    with open(file_path, "wb") as file:
+        file.write(data.getbuffer())
+
+    if file_path.lower().endswith(".kml"):
+        gpd.io.file.fiona.drvsupport.supported_drivers["KML"] = "rw"
+        gdf = gpd.read_file(file_path, driver="KML")
+    else:
+        gdf = gpd.read_file(file_path)
+
+    return gdf
 
 
-def prepImages(fireGPD):
-    fire_EE = geemap.gdf_to_ee(fireGPD).first()
-    startDate, endDate = ee.Date(fire_EE.get("Start")), ee.Date(fire_EE.get("End"))
-    fireGeometry = ee.Geometry(fire_EE.geometry())
+def prepImages(geometry, startDate, endDate):
+    if endDate-startDate >= timedelta(days=90):
+        shiftedDate = ee.Date((endDate - timedelta(days=60)).isoformat())
+        endDate += timedelta(days=20)
+    elif endDate-startDate >= timedelta(days=60):
+        shiftedDate = ee.Date((endDate - timedelta(days=40)).isoformat())
+        endDate += timedelta(days=30)
+    else:
+        shiftedDate = ee.Date((endDate + timedelta(days=1)).isoformat())
+        endDate += timedelta(days=60)
+
+
+    if type(geometry) is gpd.geoseries.GeoSeries:
+        geometry = gpd.GeoDataFrame(geometry=gpd.GeoSeries(geometry))
+    if type(startDate) is date:
+        startDate = startDate.isoformat()
+    if type(endDate) is date:
+        endDate = endDate.isoformat()
+
+    geometry_EE = ee.Geometry(geemap.gdf_to_ee(geometry).first().geometry())
+
+    startDate, endDate = ee.Date(startDate), ee.Date(endDate)
 
     preFireImage = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2"
                     ).filterDate(startDate.advance(-60, "day"), startDate
-                    ).filterBounds(fireGeometry
+                    ).filterBounds(geometry_EE
                     ).filter(ee.Filter.lte("CLOUD_COVER", 10)
                     ).mean(
-                    ).clip(fireGeometry)
+                    ).clip(geometry_EE)
 
     postFireImage = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2"
-                     ).filterDate(endDate.advance(1, "day"), endDate.advance(60, "day")
-                     ).filterBounds(fireGeometry
+                     # ).filterDate(endDate.advance(1, "day"), endDate.advance(60, "day")
+                     ).filterDate(shiftedDate, endDate
+                     ).filterBounds(geometry_EE
                      ).filter(ee.Filter.lte("CLOUD_COVER", 15)
                      ).mean(
-                     ).clip(fireGeometry)
+                     ).clip(geometry_EE)
 
     # Calculate NBR, dNBR, and burn severity
     preFireNBR = preFireImage.normalizedDifference(['SR_B5', 'SR_B7'])
@@ -197,7 +240,7 @@ def prepImages(fireGPD):
                           ":(b('landcover') > 20) ? 2 "    # red: developed/urban
                           ":(b('landcover') > 10) ? 1 "    # blue: other (water/perennial ice+snow)
                           ":0"                             # handle for potential exceptions)
-             ).clip(fireGeometry
+             ).clip(geometry_EE
              ).rename("landCoverViz")
 
 
@@ -207,7 +250,7 @@ def prepImages(fireGPD):
 
     # remove GRIDMET
     gridmet = ee.ImageCollection("IDAHO_EPSCOR/GRIDMET"
-               ).filterBounds(fireGeometry
+               ).filterBounds(geometry_EE
                ).filterDate(endDate.advance(-3, "day"), endDate
                ).mean()
 
@@ -222,7 +265,9 @@ def prepImages(fireGPD):
                            ).addBands(lc             # simplified landCover for model
                            ).addBands(lcViz)         # simplified landCover for viz
 
-    return [preFireImage, postFireImage, combined, fireGeometry]
+    # Update session state with queried ee objects
+    st.session_state["eeObjects"] = [preFireImage, postFireImage, combined, geometry_EE]
+    return st.session_state["eeObjects"]
 
 
 def ee_export_image(image, filename, scale, region, crs=None):
@@ -290,7 +335,9 @@ def downloadRaster(imgScale, image, geometry):
         image.bandNames().size().getInfo()
     except Exception as e:
         st.error("### No suitable Landsat images are available. Please try again with a different fire.")
+        st.stop()
         return
+
     startTime = time.time()
     numTries = len(imgScale)
     for i in range(numTries):
@@ -304,38 +351,68 @@ def downloadRaster(imgScale, image, geometry):
         except Exception:
             continue
 
+    if "raster.tif" in os.listdir():
+        colNames = ['SR_B1','SR_B2','SR_B3','SR_B4','SR_B5','SR_B6','SR_B7',
+                    'burnSeverity','dNBR','NDVI','elevation','pr','rmax','rmin',
+                    'sph','srad','th','tmmn','tmmx','vs','erc','eto','bi','fm100',
+                    'fm1000','etr','vpd','percent_tree_cover','landCover','landCoverViz']
 
-def rasterToParquet():
-    colNames = ['SR_B1','SR_B2','SR_B3','SR_B4','SR_B5','SR_B6','SR_B7',
-                'burnSeverity','dNBR','NDVI','elevation','pr','rmax','rmin',
-                'sph','srad','th','tmmn','tmmx','vs','erc','eto','bi','fm100',
-                'fm1000','etr','vpd','percent_tree_cover','landCover','landCoverViz']
+        intCols = colNames[:11] + colNames[-3:]
+        floatCols = colNames[11:-3]
+        colNames = {index:value for index, value in enumerate(colNames)}
 
-    # savePath = path.replace(".tif", ".csv")
-    # savePath = path.replace(".tif", ".parquet")
-    intCols = colNames[:11] + colNames[-3:]
-    floatCols = colNames[11:-3]
-    colNames = {index:value for index, value in enumerate(colNames)}
+        img, data = rio.open("raster.tif"), {}
+        st.session_state["rasterDims"] = [img.height, img.width]
+        img = img.read()
+        for index, val in colNames.items():
+            data[val] = img[index].flatten()
 
-    # img, data = rio.open(path), {}
-    img, data = rio.open("raster.tif"), {}
-    st.session_state["rasterDims"] = [img.height, img.width]
-    img = img.read()
-    for index, val in colNames.items():
-        data[val] = img[index].flatten()
+        # Convert to df, impute NA with mean + random value for burnSeverity == 0 (unlikely)
+        df = pd.DataFrame(data)
+        df = df.fillna(df.mean()).reset_index(drop=True).round(2) #
 
-    # Convert to df, impute NA with mean + random value for burnSeverity == 0 (unlikely)
-    df = pd.DataFrame(data)
-    df = df.fillna(df.mean()).reset_index(drop=True).round(2) #
+        # catches possible exceptions where null pixels lead to burnSeverity == 0
+        num = sum(df["burnSeverity"] <= 0)
+        if num > 0:
+            imputeValues = [random.sample([1,2,3,4,5], k=1)[0] for i in range(num)]
+            df.loc[df["burnSeverity"] <= 0, "burnSeverity"] = imputeValues
 
-    # catches possible exceptions where null pixels lead to burnSeverity == 0
-    num = sum(df["burnSeverity"] <= 0)
-    if num > 0:
-        imputeValues = [random.sample([1,2,3,4,5], k=1)[0] for i in range(num)]
-        df.loc[df["burnSeverity"] <= 0, "burnSeverity"] = imputeValues
+        df[intCols] = df[intCols].astype(int)
+        df.to_parquet("raster.parquet")
 
-    df[intCols] = df[intCols].astype(int)
-    df.to_parquet("raster.parquet")
+
+
+# def rasterToParquet():
+    # colNames = ['SR_B1','SR_B2','SR_B3','SR_B4','SR_B5','SR_B6','SR_B7',
+    #             'burnSeverity','dNBR','NDVI','elevation','pr','rmax','rmin',
+    #             'sph','srad','th','tmmn','tmmx','vs','erc','eto','bi','fm100',
+    #             'fm1000','etr','vpd','percent_tree_cover','landCover','landCoverViz']
+    #
+    # # savePath = path.replace(".tif", ".csv")
+    # # savePath = path.replace(".tif", ".parquet")
+    # intCols = colNames[:11] + colNames[-3:]
+    # floatCols = colNames[11:-3]
+    # colNames = {index:value for index, value in enumerate(colNames)}
+    #
+    # # img, data = rio.open(path), {}
+    # img, data = rio.open("raster.tif"), {}
+    # st.session_state["rasterDims"] = [img.height, img.width]
+    # img = img.read()
+    # for index, val in colNames.items():
+    #     data[val] = img[index].flatten()
+    #
+    # # Convert to df, impute NA with mean + random value for burnSeverity == 0 (unlikely)
+    # df = pd.DataFrame(data)
+    # df = df.fillna(df.mean()).reset_index(drop=True).round(2) #
+    #
+    # # catches possible exceptions where null pixels lead to burnSeverity == 0
+    # num = sum(df["burnSeverity"] <= 0)
+    # if num > 0:
+    #     imputeValues = [random.sample([1,2,3,4,5], k=1)[0] for i in range(num)]
+    #     df.loc[df["burnSeverity"] <= 0, "burnSeverity"] = imputeValues
+    #
+    # df[intCols] = df[intCols].astype(int)
+    # df.to_parquet("raster.parquet")
 
 
 def burnSeverityImage(data, dim, fileName):
@@ -434,10 +511,6 @@ def modelMetrics(labels, predictions):
     precision = np.round(100*precision, 2)
     recall = np.round(100*recall, 2)
 
-    # precision = np.round(100*(np.diag(cm) / np.sum(cm, axis = 0)), 2)
-    # recall = np.round(100*(np.diag(cm) / np.sum(cm, axis = 1)), 2)
-    # f1 = (2*(precision * recall) / (precision + recall))
-
     cm = np.vstack((cm, predictedTotal))
     cm = np.hstack((cm, np.array(actualTotal).reshape(len(actualTotal),1)))
 
@@ -475,8 +548,7 @@ def altChart(data):
     # bsPivot["Percentage"] /= bsPivot["Percentage"].sum()
     # bsPivot["Percentage"] = (100*bsPivot["Percentage"]).round(2)
     # bsPivot["Burn Severity"] = bsPivot["Burn Severity"].apply(lambda x: bsMap[x])
-    #
-    #
+
     lcPivot = data.pivot_table(index="landCoverViz",
                                values="SR_B1",
                                aggfunc=len

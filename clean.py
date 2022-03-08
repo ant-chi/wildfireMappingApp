@@ -1,7 +1,7 @@
 import geopandas as gpd
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import date
 
 def sizeCode(x):
     if 1000 <= x < 5000:
@@ -65,10 +65,11 @@ subFires["County"] = countyLst
 
 subFires = subFires[~subFires["County"].isna()]
 
-subFires["ALARM_DATE"] = subFires["ALARM_DATE"].apply(lambda x: datetime.fromisoformat(x[:10]))
-subFires["CONT_DATE"] = subFires["CONT_DATE"].apply(lambda x: datetime.fromisoformat(x[:10]))
+subFires["ALARM_DATE"] = subFires["ALARM_DATE"].apply(lambda x: x[:10])
+subFires["CONT_DATE"] = subFires["CONT_DATE"].apply(lambda x: x[:10])
 
-subFires["Contained Month"] = subFires["CONT_DATE"].apply(lambda x: x.month)
+subFires["Contained Month"] = subFires["CONT_DATE"].apply(lambda x: date.fromisoformat(x).month)
+
 subFires["Size Class"] = subFires["GIS_ACRES"].apply(sizeCode)
 
 subFires = subFires[["OBJECTID", "FIRE_NAME", "County", "YEAR_", "Contained Month",
@@ -78,4 +79,3 @@ subFires.columns = ["ID", "Fire", "County", "Year", "Contained Month", "Start", 
 
 
 subFires.reset_index(drop=True).to_file("data/norCalFires.geojson", driver="GeoJSON")
-# subFires["bbox"] = subFires["geometry"].apply(lambda x: boundsBuffer(x.bounds))

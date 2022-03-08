@@ -31,7 +31,7 @@ def loadData():
     """
     Loads fire data and caches result with streamlit
     """
-    fires = gpd.read_file("norCalFires.geojson")
+    fires = gpd.read_file("data/norCalFires.geojson")
     fires["Start"] = fires["Start"].apply(lambda x: date.fromisoformat(x))
     fires["End"] = fires["End"].apply(lambda x: date.fromisoformat(x))
     fires["geometry"] = fires["geometry"].apply(lambda x: bbox(x.bounds))

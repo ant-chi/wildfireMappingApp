@@ -102,7 +102,7 @@ if manual:
 
     # folium map for drawing custom polygons
     with col_1:
-        drawMap.to_streamlit(height=500)
+        drawMap.to_streamlit(height=500, width=500)
 
     with col_2:
         with st.form(" "):

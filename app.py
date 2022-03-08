@@ -12,7 +12,7 @@ import folium
 from datetime import date, timedelta
 # from folium import plugins
 # from PIL import Image
-from testFuncs import *
+from funcs import *
 
 
 st.set_page_config(layout="wide", page_title="INSERT TITLE", page_icon=":earth_americas:")

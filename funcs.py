@@ -1,6 +1,7 @@
 import streamlit as st
 import ee
 import geemap
+import geemap.foliumap as fmap
 import geopandas as gpd
 import pandas as pd
 import numpy as np
@@ -9,6 +10,7 @@ from datetime import datetime, date, timedelta
 from shapely.geometry import Polygon
 import os
 import altair as alt
+import folium
 import rasterio as rio
 
 import pickle
@@ -48,6 +50,9 @@ def loadModels():
     models["Logistic Regression"] = pickle.load(open("models/logistic_regression.sav", 'rb'))
     models["Multi-Layer Perceptron"] = pickle.load(open("models/mlp.sav", 'rb'))
     models["Random Forest"] = joblib.load(open("models/rf.pkl", 'rb'))
+    models["SVM"] = joblib.load(open("models/svc.pkl", "rb"))
+    models["log_boost"] = joblib.load(open("models/log_boost.pkl", "rb"))
+    models["Boosted Trees"] = joblib.load(open("models/tree_boost.pkl", "rb"))
 
     # etcURL = "https://www.dl.dropboxusercontent.com/s/jr8vwvz1tsee1f9/etc.pkl?dl=0"
     # etcRequest = requests.get(etcURL, allow_redirects=True)
@@ -55,9 +60,45 @@ def loadModels():
     # del etcURL
     # models["Extra Trees"] = joblib.load(open("extraTrees.pkl", 'rb'))
 
-    models["SVM"] = joblib.load(open("models/svc.pkl", "rb"))
-    models["log_boost"] = joblib.load(open("models/log_boost.pkl", "rb"))
     return models
+
+
+@st.cache(allow_output_mutation=True, suppress_st_warning=True)
+def loadDrawMap():
+    drawMap = fmap.Map(add_google_map=False,
+                       basemap="HYBRID",
+                       plugin_Draw=True,
+                       draw_export=True,
+                       locate_control=True,
+                       plugin_LatLngPopup=False)
+
+    drawMap.set_center(-121.15, 40.25, 6.5)
+
+    drawMap.add_shapefile(in_shp="data/CA_Counties/CA_Counties_TIGER2016.shp",
+                          layer_name="CA Counties (no tooltips)",
+                          smooth_factor=2,
+                          highlight_function=lambda x: {"weight": 4,
+                                                        "color": "#FF5699"},
+                          style_function=lambda feature: {"fillColor": feature["properties"]["NAME"],
+                                                          "color" : "#FFB3D1",
+                                                          "weight" : 1,
+                                                          "fillOpacity" : 0})
+
+    drawMap.add_shapefile(in_shp="data/CA_Counties/CA_Counties_TIGER2016.shp",
+                          layer_name="CA Counties",
+                          smooth_factor=2,
+                          highlight_function=lambda x: {"weight": 4,
+                                                        "color": "#FF5699"},
+                          tooltip=folium.features.GeoJsonTooltip(fields=["NAME"],
+                                                                 aliases=["County:"],
+                                                                 labels=True,
+                                                                 sticky=True,
+                                                                 toLocaleString=True),
+                          style_function=lambda feature: {"fillColor": feature["properties"]["NAME"],
+                                                          "color" : "#FFB3D1",
+                                                          "weight" : 1,
+                                                          "fillOpacity" : 0})
+    return drawMap
 
 
 def updateIdState(fireID):
@@ -132,7 +173,6 @@ def subsetFires(data, startYear, endYear, containedMonths, sizeClass, counties):
     return subset.sort_values(by="Fire").reset_index(drop=True)
 
 
-# def getLandsatImages():
 @st.cache(allow_output_mutation=True, suppress_st_warning=True)
 def uploaded_file_to_gdf(data):
     import tempfile
@@ -351,7 +391,10 @@ def downloadRaster(imgScale, image, geometry):
         except Exception:
             continue
 
-    if "raster.tif" in os.listdir():
+    if "raster.tif" not in os.listdir():
+        st.error("### Fire exceeds total request size. Please try again with a smaller fire.")
+        st.stop()
+    else:
         colNames = ['SR_B1','SR_B2','SR_B3','SR_B4','SR_B5','SR_B6','SR_B7',
                     'burnSeverity','dNBR','NDVI','elevation','pr','rmax','rmin',
                     'sph','srad','th','tmmn','tmmx','vs','erc','eto','bi','fm100',
@@ -379,40 +422,6 @@ def downloadRaster(imgScale, image, geometry):
 
         df[intCols] = df[intCols].astype(int)
         df.to_parquet("raster.parquet")
-
-
-
-# def rasterToParquet():
-    # colNames = ['SR_B1','SR_B2','SR_B3','SR_B4','SR_B5','SR_B6','SR_B7',
-    #             'burnSeverity','dNBR','NDVI','elevation','pr','rmax','rmin',
-    #             'sph','srad','th','tmmn','tmmx','vs','erc','eto','bi','fm100',
-    #             'fm1000','etr','vpd','percent_tree_cover','landCover','landCoverViz']
-    #
-    # # savePath = path.replace(".tif", ".csv")
-    # # savePath = path.replace(".tif", ".parquet")
-    # intCols = colNames[:11] + colNames[-3:]
-    # floatCols = colNames[11:-3]
-    # colNames = {index:value for index, value in enumerate(colNames)}
-    #
-    # # img, data = rio.open(path), {}
-    # img, data = rio.open("raster.tif"), {}
-    # st.session_state["rasterDims"] = [img.height, img.width]
-    # img = img.read()
-    # for index, val in colNames.items():
-    #     data[val] = img[index].flatten()
-    #
-    # # Convert to df, impute NA with mean + random value for burnSeverity == 0 (unlikely)
-    # df = pd.DataFrame(data)
-    # df = df.fillna(df.mean()).reset_index(drop=True).round(2) #
-    #
-    # # catches possible exceptions where null pixels lead to burnSeverity == 0
-    # num = sum(df["burnSeverity"] <= 0)
-    # if num > 0:
-    #     imputeValues = [random.sample([1,2,3,4,5], k=1)[0] for i in range(num)]
-    #     df.loc[df["burnSeverity"] <= 0, "burnSeverity"] = imputeValues
-    #
-    # df[intCols] = df[intCols].astype(int)
-    # df.to_parquet("raster.parquet")
 
 
 def burnSeverityImage(data, dim, fileName):
@@ -522,7 +531,6 @@ def modelMetrics(labels, predictions):
 
     cm.columns = columns + ["Predicted Total"]
     cm.index = index + ["Actual Total"]
-    # cm.index.name, cm.columns.name = "Actual", "Predicted"
 
     metrics = pd.DataFrame({"Precision (%)": precision, "Recall (%)": recall, "F1 (%)": f1})
     metrics.index = index

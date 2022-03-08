@@ -8,20 +8,18 @@ import geemap.foliumap as fmap
 import os
 import time
 import folium
-
 from datetime import date, timedelta
-# from folium import plugins
-# from PIL import Image
 from funcs import *
 
 
-st.set_page_config(layout="wide", page_title="INSERT TITLE", page_icon=":earth_americas:")
+st.set_page_config(layout="wide", page_title="Fire Mapping Portal", page_icon=":earth_americas:")
 
-# initialize EE + cache data and models
+# initialize EE + cache data, models, folium drawMap
 geemap.ee_initialize()
 
 df = loadData()
 models = loadModels()
+drawMap = loadDrawMap()
 
 if "eeObjects" not in st.session_state:
     st.session_state["eeObjects"] = None     # stores necessary EE objects if data is queried
@@ -71,16 +69,24 @@ with st.sidebar:
 
     st.write("# How does this app work?")
     st.video("https://www.youtube.com/watch?v=5qap5aO4i9A")
-#
-    st.write("# Project Details")
-    st.write("## [Visit our project repo!](https://github.com/a2lu/CAPSTONE_WILDFIRE)")
-    st.write("## [Visit our site for more details on this project!](https://cashcountinchi.github.io/b12_capstone/)")
+
+    st.write("# :star2: Project Links :star2:")
+    st.write("## [Visit our site for more details on this project!](https://cashcountinchi.github.io/b12_capstone/)", "\n",
+    "## [Visit our project repo!](https://github.com/a2lu/CAPSTONE_WILDFIRE)")
+
+    st.write("# :mailbox: Contact Information :mailbox:")
+    st.write(
+    """
+    * Alice Lu:
+    * Anthony Chi:
+    * Oscar Jimenez:
+    * Jaskaranpal Singh:
+    """)
 
 
 if manual:
-    st.write("### Manual")
-
-    col_1, col_2 = st.columns(2)
+    st.write("### Manual Fire Mapping")
+    col_1, col_2 = st.columns([1, 0.6])
 
     if "idLst" in st.session_state:
         del st.session_state["idLst"]
@@ -93,17 +99,10 @@ if manual:
     if "currentState" not in st.session_state:
         st.session_state["currentState"] = 0
 
-    # emptyCol_1, col_1, emptyCol_2 = st.columns([1,3.75,1])
-    drawMap = fmap.Map(add_google_map=False,
-                       plugin_Draw=True,
-                       draw_export=True,
-                       locate_control=True,
-                       plugin_LatLngPopup=True)
 
-    drawMap.set_center(-121.15, 40.25, 6.5)
-
+    # folium map for drawing custom polygons
     with col_1:
-        drawMap.to_streamlit(height=500, width=500)
+        drawMap.to_streamlit(height=500)
 
     with col_2:
         with st.form(" "):
@@ -118,7 +117,7 @@ if manual:
             start = st.date_input(label="Fire Start Date",
                                   value=date.fromisoformat("2021-08-10"),
                                   min_value=date.fromisoformat("2013-03-19"),
-                                  max_value=date.today() + timedelta(weeks=-1),
+                                  max_value=date.today() + timedelta(weeks=-2),
                                   help="Select the starting date of a fire. (Must be a valid date for Landsat 8 images) \
                                   \n For more information on Landsat 8: \
                                   https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LC08_C02_T1_L2#description")
@@ -126,7 +125,7 @@ if manual:
             end = st.date_input(label="Fire End Date",
                                 value=date.fromisoformat("2021-09-10"),
                                   min_value=date.fromisoformat("2013-03-19"),
-                                  max_value=date.today() + timedelta(weeks=-1),
+                                  max_value=date.today() + timedelta(weeks=-2),
                                   help="Select the end date of a fire. (Must be a valid date for Landsat 8 images) \
                                   \n For more information on Landsat 8: \
                                   https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LC08_C02_T1_L2#description")
@@ -146,31 +145,31 @@ else:
 
 
     with st.container():
-        st.write("## Filter Fires")
-        col_1, emptyCol_1, col_2 = st.columns([5, 1, 5])
-        col_3, emptyCol_2, col_4 = st.columns([5, 1, 5])
+        st.write("### Filter Fires")
+        col_3, emptyCol_1, col_4 = st.columns([5, 1, 5])
+        col_5, emptyCol_2, col_6 = st.columns([5, 1, 5])
 
-        with col_1:
+        with col_3:
             startYear, endYear = st.select_slider(label="Year",
                                                   options=[i for i in range(2013, 2022)],
                                                   value=[2013, 2021],
                                                   on_change=None)
-        with col_2:
+        with col_4:
             endMonths = st.multiselect(label="Fire Containment Month",
                                        options=list(monthMap.keys()),
                                        format_func=lambda x: monthMap[x],
-                                       default=[6, 7, 8, 9],
+                                       default=[8, 9, 10, 11],
                                        help="Month that a fire is contained/extinguished.\
                                        \n Recommended months are June-October.")
-        with col_3:
+        with col_5:
             counties = st.multiselect(label="County",
                                       options=sorted(df["County"].unique()),
                                       default=["Humboldt", "Lassen", "Mendocino",
-                                               "Modoc", "Shasta", "Siskiyou"],
+                                               "Napa", "Shasta", "Sonoma"],
                                       on_change=None,
                                       help="Counties in Northern California")
 
-        with col_4:
+        with col_6:
             sizeClasses = st.multiselect(label="Size Class",
                                          options=["E", "F", "G",
                                                   "H", "I", "J+"],
@@ -195,14 +194,14 @@ else:
         st.write(temp)
 
     with st.form("Map Fire"):
-        col_5, emptyCol_2, col_6 = st.columns([5, 1, 5])
+        col_7, emptyCol_3, col_8 = st.columns([5, 1, 5])
         selectBoxOptions = formatFireSelectBox(dfSubset)
 
-        fireID = col_5.selectbox(label="Select Fire to Map",
+        fireID = col_7.selectbox(label="Select Fire to Map",
                                  options=list(selectBoxOptions.keys()),
                                  format_func=lambda x: selectBoxOptions[x])
 
-        modelKey = col_6.selectbox(label="Select Supervised Classifier",
+        modelKey = col_8.selectbox(label="Select Supervised Classifier",
                                    options=list(models.keys()),
                                    on_change=None)
 
@@ -216,7 +215,6 @@ if mapFireSubmit:
     startTime = time.time()
     model = models[modelKey]
     tempMessage = st.empty()
-
 
     if not manual:
         fireData = dfSubset[dfSubset["ID"]==fireID]
@@ -237,23 +235,23 @@ if mapFireSubmit:
             preFireL8, postFireL8, combined, fireGeometry = prepImages(geometry=fireData["geometry"],
                                                                        startDate=fireData["Start"].values[0],
                                                                        endDate=fireData["End"].values[0])
-            downloadRaster([30, 60, 90, 120, 150], combined, fireGeometry)
-            # rasterToParquet()
+            downloadRaster([30, 60, 90, 120, 150, 180], combined, fireGeometry)
         else:
             preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
 
     if manual:
+        # checks validity of input widgets
         if geoFile is None:
             st.error("### Must upload a geometry file")
             st.stop()
         elif end-start < timedelta(days=0):
             st.error("### Select a valid, non-overlapping date interval")
             st.stop()
-        elif not (date.fromisoformat("2013-03-19") < start < date.today() + timedelta(weeks=-1)):
+        elif not (date.fromisoformat("2013-03-19") < start < date.today() + timedelta(weeks=-2)):
             st.error("Selected Fire Start Date is invalid. Refer to Landsat 8 image availability here: \
             https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LC08_C02_T1_L2#description")
             st.stop()
-        elif not (date.fromisoformat("2013-03-19") < end < date.today() + timedelta(weeks=-1)):
+        elif not (date.fromisoformat("2013-03-19") < end < date.today() + timedelta(weeks=-2)):
             st.error("Selected Fire End Date is invalid. Refer to Landsat 8 image availability here: \
             https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LC08_C02_T1_L2#description")
             st.stop()
@@ -268,6 +266,7 @@ if mapFireSubmit:
             gdf["geometry"] = gdf["geometry"].apply(lambda x: bbox(x.bounds))
             fireBounds = list(gdf["geometry"].bounds.values[0])
 
+            # Requeries data if file upload or date widgets change
             if sum(widgetStates[currentState-1] == widgetStates[currentState]) != 3:
                 tempMessage.write("#### Querying data.....")
                 for i in os.listdir():
@@ -278,8 +277,7 @@ if mapFireSubmit:
                                                                            startDate=start,
                                                                            endDate=end)
 
-                downloadRaster([30, 60, 90, 120, 150], combined, fireGeometry)
-                # rasterToParquet()
+                downloadRaster([30, 60, 90, 120, 150, 180], combined, fireGeometry)
             else:
                 preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
 
@@ -294,7 +292,7 @@ if mapFireSubmit:
         labels, predictions = df["burnSeverity"].values, model.predict(modelData)
 
         # +1 for oscar models
-        if modelKey in ["log_boost", "SVM"]:
+        if modelKey in ["log_boost", "SVM", "Boosted Trees"]:
             predictions = predictions + 1
 
         # png of actual+predicted burn severity from raster data
@@ -307,23 +305,23 @@ if mapFireSubmit:
                    legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
                                         ["None"]+burn_viz["palette"]+["None"]+nlcd_viz["palette"])))
 
-        m.addLayer(preFireL8, l8_432, "Pre-Fire RGB")
-        m.addLayer(postFireL8, l8_432, "Post-Fire RGB")
+        m.addLayer(preFireL8, l8_432, "Pre-Fire (RGB)")
+        m.addLayer(postFireL8, l8_432, "Post-Fire (RGB)")
 
-        m.addLayer(preFireL8, l8_753, "Pre-Fire (753)")
-        m.addLayer(postFireL8, l8_753, "Post-Fire (753)")
+        m.addLayer(preFireL8, l8_753, "Pre-Fire (False-Color)")
+        m.addLayer(postFireL8, l8_753, "Post-Fire (False-Color)")
 
         m.addLayer(combined.clip(fireGeometry), nlcd_viz, "Land Cover")
 
         # adds burn severity png's as folium layers
-        png_1 = folium.raster_layers.ImageOverlay(name='Burn Severity',
+        png_1 = folium.raster_layers.ImageOverlay(name="Thresholded Burn Severity",
                                                   image="actualBS.png",
                                                   bounds=[fireBounds[:2][::-1],
                                                           fireBounds[2:][::-1]],
                                                   interactive=True)
         png_1.add_to(m)
 
-        png_2 = folium.raster_layers.ImageOverlay(name='Predicted Burn Severity',
+        png_2 = folium.raster_layers.ImageOverlay(name="Predicted Burn Severity",
                                                   image="predictedBS.png",
                                                   bounds=[fireBounds[:2][::-1],
                                                           fireBounds[2:][::-1]],
@@ -342,16 +340,17 @@ if mapFireSubmit:
 
         tempMessage.empty()
 
-        emptyCol_3, col_7, emptyCol_4 = st.columns([1,3.75,1])
-        with col_7:
+        emptyCol_4, col_9, emptyCol_5 = st.columns([1,3.75,1])
+        with col_9:
             # st.write("#### {} Accuracy: {}%".format(modelKey, np.round(100*np.mean(labels==predictions), 2)))
             m.to_streamlit(height=670, width=600, scrolling=True)
 
-            st.write(cm.style.set_properties(**{'text-align': 'center'}).to_html(),
-                     unsafe_allow_html=True)
-            st.write(metrics.to_html(),
-                     unsafe_allow_html=True)
-            st.altair_chart(lcChart)
+            with st.expander("View model metrics"):
+                st.write(cm.style.set_properties(**{'text-align': 'center'}).to_html(),
+                         unsafe_allow_html=True)
+                st.write(metrics.to_html(),
+                         unsafe_allow_html=True)
+                st.altair_chart(lcChart)
 
 
     st.success("#### Total Runtime: {} seconds".format(np.round((time.time()-startTime), 2)))

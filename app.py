@@ -78,14 +78,7 @@ with st.sidebar:
              unsafe_allow_html=True)
 
     st.write("# :mailbox: Contact Information :mailbox:")
-    st.write(
-    """
-    * **Alice Lu**
-    * **Anthony Chi (Author)**
-    * **Oscar Jimenez**
-    * **Jaskaranpal Singh**
-    """)
-
+    sidebarContactInfo()
 
 if manual:
     st.write("### Manual Fire Mapping")
@@ -320,7 +313,7 @@ if mapFireSubmit:
 
         # adds burn severity png's as folium layers
         png_1 = folium.raster_layers.ImageOverlay(name="Thresholded Burn Severity",
-                                                  image="actualBS.png",
+                                                  image="thresholdBS.png",
                                                   bounds=[fireBounds[:2][::-1],
                                                           fireBounds[2:][::-1]],
                                                   interactive=True)

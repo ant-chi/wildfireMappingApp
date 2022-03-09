@@ -178,6 +178,9 @@ def subsetFires(data, startYear, endYear, containedMonths, sizeClass, counties):
 
 @st.cache(allow_output_mutation=True, suppress_st_warning=True)
 def uploaded_file_to_gdf(data):
+    """
+    Source: https://github.com/giswqs/streamlit-geospatial/blob/master/apps/timelapse.py
+    """
     import tempfile
     import os
     import uuid
@@ -195,7 +198,7 @@ def uploaded_file_to_gdf(data):
     else:
         gdf = gpd.read_file(file_path)
 
-    return gdf
+    return gdf.to_crs("EPSG:4326")
 
 
 def prepImages(geometry, startDate, endDate):
@@ -286,16 +289,9 @@ def prepImages(geometry, startDate, endDate):
              ).clip(geometry_EE
              ).rename("landCoverViz")
 
-
     ndvi = postFireImage.normalizedDifference(["SR_B5", "SR_B4"]
                        ).rename("NDVI"
                        ).multiply(1000)
-
-    # remove GRIDMET
-    gridmet = ee.ImageCollection("IDAHO_EPSCOR/GRIDMET"
-               ).filterBounds(geometry_EE
-               ).filterDate(endDate.advance(-3, "day"), endDate
-               ).mean()
 
     # Merge all image bands together
     combined = postFireImage.select('SR_B.'          # post-fire L8 bands 1-7
@@ -303,7 +299,6 @@ def prepImages(geometry, startDate, endDate):
                            ).addBands(dNBR           # dNBR
                            ).addBands(ndvi           # post-fire NDVI
                            ).addBands(dem            # SRTM elevation
-                           ).addBands(gridmet        # all GRIDMET bands
                            ).addBands(nlcd.select("percent_tree_cover")
                            ).addBands(lc             # simplified landCover for model
                            ).addBands(lcViz)         # simplified landCover for viz
@@ -399,12 +394,9 @@ def downloadRaster(imgScale, image, geometry):
         st.stop()
     else:
         colNames = ['SR_B1','SR_B2','SR_B3','SR_B4','SR_B5','SR_B6','SR_B7',
-                    'burnSeverity','dNBR','NDVI','elevation','pr','rmax','rmin',
-                    'sph','srad','th','tmmn','tmmx','vs','erc','eto','bi','fm100',
-                    'fm1000','etr','vpd','percent_tree_cover','landCover','landCoverViz']
+                    'burnSeverity','dNBR','NDVI','elevation',
+                    'percent_tree_cover','landCover','landCoverViz']
 
-        intCols = colNames[:11] + colNames[-3:]
-        floatCols = colNames[11:-3]
         colNames = {index:value for index, value in enumerate(colNames)}
 
         img, data = rio.open("raster.tif"), {}
@@ -415,7 +407,7 @@ def downloadRaster(imgScale, image, geometry):
 
         # Convert to df, impute NA with mean + random value for burnSeverity == 0 (unlikely)
         df = pd.DataFrame(data)
-        df = df.fillna(df.mean()).reset_index(drop=True).round(2) #
+        df = df.fillna(df.mean()).reset_index(drop=True).round(2)
 
         # catches possible exceptions where null pixels lead to burnSeverity == 0
         num = sum(df["burnSeverity"] <= 0)
@@ -423,8 +415,8 @@ def downloadRaster(imgScale, image, geometry):
             imputeValues = [random.sample([1,2,3,4,5], k=1)[0] for i in range(num)]
             df.loc[df["burnSeverity"] <= 0, "burnSeverity"] = imputeValues
 
-        df[intCols] = df[intCols].astype(int)
-        df.to_parquet("raster.parquet")
+        df.astype(int).to_parquet("raster.parquet")
+        # df.to_parquet("raster.parquet")
 
 
 def burnSeverityImage(data, dim, fileName):
@@ -544,6 +536,58 @@ def modelMetrics(labels, predictions):
 
     return cm.fillna(0), metrics.fillna(0)
 
+
+def sidebarContactInfo():
+    st.write(
+    """
+    <ul>
+        <li style="font-size:15px";>
+            <b>Alice Lu</b>
+            &nbsp;&nbsp;
+            <a href='mailto:anchi@ucsd.edu' style='color: transparent;'>
+                <img src='https://cdn.iconscout.com/icon/free/png-256/email-2026367-1713640.png' alt='email icon' align='middle' style='width:20;height:20px;'>
+            </a>
+            &nbsp;
+            <a href='https://www.youtube.com/' style='color: transparent;'>
+                <img src='https://cdn-icons-png.flaticon.com/512/174/174857.png' alt='linkedin icon' align='middle' style='width:17;height:15px;'>
+            </a>
+        </li>
+        <li style="font-size:15px";>
+            <b>Anthony Chi (Author)</b>
+            &nbsp;&nbsp;
+            <a href='mailto:anchi@ucsd.edu' style='color: transparent;'>
+                <img src='https://cdn.iconscout.com/icon/free/png-256/email-2026367-1713640.png' alt='email icon' align='middle' style='width:20;height:20px;'>
+            </a>
+            &nbsp;
+            <a href='https://www.youtube.com/' style='color: transparent;'>
+                <img src='https://cdn-icons-png.flaticon.com/512/174/174857.png' alt='linkedin icon' align='middle' style='width:17;height:15px;'>
+            </a>
+        </li>
+        <li style="font-size:15px";>
+            <b>Oscar Jimenez</b>
+            &nbsp;&nbsp;
+            <a href='mailto:anchi@ucsd.edu' style='color: transparent;'>
+                <img src='https://cdn.iconscout.com/icon/free/png-256/email-2026367-1713640.png' alt='email icon' align='middle' style='width:20;height:20px;'>
+            </a>
+            &nbsp;
+            <a href='https://www.youtube.com/' style='color: transparent;'>
+                <img src='https://cdn-icons-png.flaticon.com/512/174/174857.png' alt='linkedin icon' align='middle' style='width:17;height:15px;'>
+            </a>
+        </li>
+        <li style="font-size:15px";>
+            <b>Jaskaranpal Singh</b>
+            &nbsp;&nbsp;
+            <a href='mailto:anchi@ucsd.edu' style='color: transparent;'>
+                <img src='https://cdn.iconscout.com/icon/free/png-256/email-2026367-1713640.png' alt='email icon' align='middle' style='width:20;height:20px;'>
+            </a>
+            &nbsp;
+            <a href='https://www.youtube.com/' style='color: transparent;'>
+                <img src='https://cdn-icons-png.flaticon.com/512/174/174857.png' alt='linkedin icon' align='middle' style='width:17;height:15px;'>
+            </a>
+        </li>
+    </ul>
+    """,
+    unsafe_allow_html=True)
 
 
 def altChart(data):

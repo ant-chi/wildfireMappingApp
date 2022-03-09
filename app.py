@@ -12,7 +12,7 @@ from datetime import date, timedelta
 from funcs import *
 
 
-st.set_page_config(layout="wide", page_title="Fire Mapping Portal", page_icon=":earth_americas:")
+st.set_page_config(layout="wide", page_title=" ", page_icon=":earth_americas:")
 
 # initialize EE + cache data, models, folium drawMap
 geemap.ee_initialize()
@@ -22,18 +22,18 @@ models = loadModels()
 drawMap = loadDrawMap()
 
 if "eeObjects" not in st.session_state:
-    st.session_state["eeObjects"] = None     # stores necessary EE objects if data is queried
+    st.session_state["eeObjects"] = None     # caches necessary EE objects if data is queried
 if "rasterDims" not in st.session_state:
-    st.session_state["rasterDims"] = None
+    st.session_state["rasterDims"] = None    # caches raster dimensions
 
 # ee viz params
 l8_432 = {"bands": ["SR_B4", "SR_B3", "SR_B2"],
           "gamma": [1.1, 1.1, 1],
-          "min": 2000, "max": 30000}
+          "min": 2000, "max": 22500}
 
 l8_753 = {"bands": ["SR_B7", "SR_B5", "SR_B3"],
           "gamma": [1, 1.1, 1],
-          "min": 1500, "max": 25000}
+          "min": 1500, "max": 22500}
 
 burn_viz = {"bands": ["burnSeverity"],
             "palette": ["706c1e", "4e9d5c", "fff70b", "ff641b", "a41fd6"],
@@ -47,7 +47,7 @@ monthMap = {1: "January", 2: "February", 3: "March", 4: "April", 5: "May", 6: "J
             8: "August", 9: "September", 10: "October", 11: "November", 12: "December"}
 
 
-# changes sidebar width
+# increase sidebar width
 st.markdown(
     """
     <style>
@@ -60,8 +60,8 @@ st.markdown(
     }
     </style>
     """,
-    unsafe_allow_html=True
-)
+    unsafe_allow_html=True)
+
 
 with st.sidebar:
     manual = st.checkbox(label="Manual Fire Mapping",
@@ -71,16 +71,19 @@ with st.sidebar:
     st.video("https://www.youtube.com/watch?v=5qap5aO4i9A")
 
     st.write("# :star2: Project Links :star2:")
-    st.write("## [Visit our site for more details on this project!](https://cashcountinchi.github.io/b12_capstone/)", "\n",
-    "## [Visit our project repo!](https://github.com/a2lu/CAPSTONE_WILDFIRE)")
+    st.write("## [Visit our site for more details on this project!](https://cashcountinchi.github.io/b12_capstone/)",
+             "\n",
+             "## [Visit our Github!](https://github.com/cashcountinchi/capstoneApp)&nbsp;&nbsp;&nbsp;\
+             <img src='https://cdn-icons-png.flaticon.com/512/25/25231.png' alt='Github logo' align='middle' style='width:25;height:25px;'>",
+             unsafe_allow_html=True)
 
     st.write("# :mailbox: Contact Information :mailbox:")
     st.write(
     """
-    * Alice Lu:
-    * Anthony Chi:
-    * Oscar Jimenez:
-    * Jaskaranpal Singh:
+    * **Alice Lu**
+    * **Anthony Chi (Author)**
+    * **Oscar Jimenez**
+    * **Jaskaranpal Singh**
     """)
 
 
@@ -262,11 +265,13 @@ if mapFireSubmit:
                             inaccurate/skewed results for winter fires.")
 
             widgetStates, currentState = updateWidgetState([geoFile, start, end])
+
+            # converts uploaded file to GeoDataFrame and fits bounding box over geometry
             gdf = uploaded_file_to_gdf(geoFile)
             gdf["geometry"] = gdf["geometry"].apply(lambda x: bbox(x.bounds))
             fireBounds = list(gdf["geometry"].bounds.values[0])
 
-            # Requeries data if file upload or date widgets change
+            # Requeries data if file upload or date widgets change between runs
             if sum(widgetStates[currentState-1] == widgetStates[currentState]) != 3:
                 tempMessage.write("#### Querying data.....")
                 for i in os.listdir():
@@ -291,15 +296,15 @@ if mapFireSubmit:
 
         labels, predictions = df["burnSeverity"].values, model.predict(modelData)
 
-        # +1 for oscar models
+        # scale oscar models by +1
         if modelKey in ["log_boost", "SVM", "Boosted Trees"]:
             predictions = predictions + 1
 
         # png of actual+predicted burn severity from raster data
-        burnSeverityImage(labels, st.session_state["rasterDims"], "actualBS.png")
+        burnSeverityImage(labels, st.session_state["rasterDims"], "thresholdBS.png")
         burnSeverityImage(predictions, st.session_state["rasterDims"], "predictedBS.png")
 
-        # initialize geemap.foliumMap and adds legend + image layers
+        # initialize geemap.foliumMap adds legend + image layers
         m = fmap.Map(add_google_map=False, plugin_LatLngPopup=False)
         add_legend(map=m,
                    legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
@@ -355,7 +360,7 @@ if mapFireSubmit:
 
     st.success("#### Total Runtime: {} seconds".format(np.round((time.time()-startTime), 2)))
 
-
+# App footer
 footer="""<style>
 a:link , a:visited{
 color: blue;

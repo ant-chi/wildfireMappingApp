@@ -31,7 +31,7 @@ import matplotlib.pyplot as plt
 @st.cache(allow_output_mutation=True, suppress_st_warning=True)
 def loadData():
     """
-    Loads fire data and caches result with streamlit
+    Loads fire data and caches with streamlit
     """
     fires = gpd.read_file("data/norCalFires.geojson")
     fires["Start"] = fires["Start"].apply(lambda x: date.fromisoformat(x))
@@ -43,7 +43,7 @@ def loadData():
 @st.cache(allow_output_mutation=True, suppress_st_warning=True)
 def loadModels():
     """
-    Stores trained models in a dictionary and caches result with streamlit
+    Stores trained models in a dictionary and caches with streamlit
     """
     models = dict()
 
@@ -65,6 +65,9 @@ def loadModels():
 
 @st.cache(allow_output_mutation=True, suppress_st_warning=True)
 def loadDrawMap():
+    """
+    Creates a folium map with overlay of California counties and caches with streamlit
+    """
     drawMap = fmap.Map(add_google_map=False,
                        basemap="HYBRID",
                        plugin_Draw=True,
@@ -426,7 +429,7 @@ def downloadRaster(imgScale, image, geometry):
 
 def burnSeverityImage(data, dim, fileName):
     """
-    Produces a burn severity image from raster data
+    Produces a burn severity image from raster data using matplotlib.
 
     Args:
         data: raster data
@@ -443,7 +446,9 @@ def burnSeverityImage(data, dim, fileName):
 
 
 def add_legend(map, legend_dict=None, opacity=1.0):
-    """Adds a customized basemap to the map. Reference: https://bit.ly/3oV6vnH
+    """
+    Adds a dual map legend to folium map.
+    Source: https://geemap.org/foliumap/#geemap.foliumap.Map.add_legend
 
     Args:
         title (str, optional): Title of the legend. Defaults to 'Legend'. Defaults to "Legend".
@@ -497,6 +502,8 @@ def add_legend(map, legend_dict=None, opacity=1.0):
 
 
 def prepData(data):
+    """
+    """
     scaler = preprocessing.StandardScaler().fit(data.values)
     return scaler.transform(data)
 
@@ -506,7 +513,7 @@ def modelMetrics(labels, predictions):
     Returns a confusion matrix and table with precision, recall, and f1 scores.
 
     Args:
-        labels: array of actual burn severity values
+        labels: array of burn severity values generated with a linear dNBR threshold
         predictions: array of predicted burn severity values
     """
     cm = confusion_matrix(labels, predictions)

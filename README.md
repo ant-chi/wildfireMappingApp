@@ -5,5 +5,6 @@ Access our project site:
 
 Access our project repo: [https://github.com/a2lu/CAPSTONE_WILDFIRE](https://github.com/a2lu/CAPSTONE_WILDFIRE)
 
-
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io/cashcountinchi/capstoneapp/main/app.py)
+
+Special thanks to Dr. Qiusheng Wu for developing the amazing **[geemap](https://geemap.org/)** package.

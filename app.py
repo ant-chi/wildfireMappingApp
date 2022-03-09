@@ -19,7 +19,7 @@ geemap.ee_initialize()
 
 df = loadData()
 models = loadModels()
-drawMap = loadDrawMap()
+# drawMap = loadDrawMap()
 
 if "eeObjects" not in st.session_state:
     st.session_state["eeObjects"] = None     # caches necessary EE objects if data is queried
@@ -98,6 +98,7 @@ if manual:
 
     # folium map for drawing custom polygons
     with col_1:
+        drawMap = loadDrawMap()
         drawMap.to_streamlit(height=500, width=500)
 
     with col_2:

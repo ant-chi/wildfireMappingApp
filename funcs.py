@@ -63,7 +63,7 @@ def loadModels():
     return models
 
 
-@st.cache(allow_output_mutation=True, suppress_st_warning=True)
+# @st.cache(allow_output_mutation=True, suppress_st_warning=True)
 def loadDrawMap():
     """
     Creates a folium map with overlay of California counties and caches with streamlit

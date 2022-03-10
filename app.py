@@ -14,12 +14,12 @@ from funcs import *
 
 st.set_page_config(layout="wide", page_title=" ", page_icon=":earth_americas:")
 
-# initialize EE + cache data, models, folium drawMap
+# initialize EE + cache data / models
 geemap.ee_initialize()
 
 df = loadData()
 models = loadModels()
-# drawMap = loadDrawMap()
+
 
 if "eeObjects" not in st.session_state:
     st.session_state["eeObjects"] = None     # caches necessary EE objects if data is queried
@@ -52,11 +52,11 @@ st.markdown(
     """
     <style>
     [data-testid="stSidebar"][aria-expanded="true"] > div:first-child {
-        width: 500px;
+        width: 400px;
     }
     [data-testid="stSidebar"][aria-expanded="false"] > div:first-child {
-        width: 500px;
-        margin-left: -500px;
+        width: 400px;
+        margin-left: -400px;
     }
     </style>
     """,
@@ -98,8 +98,8 @@ if manual:
 
     # folium map for drawing custom polygons
     with col_1:
-        drawMap = loadDrawMap()
-        drawMap.to_streamlit(height=500, width=500)
+        loadDrawMap()
+
 
     with col_2:
         with st.form(" "):
@@ -226,13 +226,13 @@ if mapFireSubmit:
         if idLst[currentIndex-1] != idLst[currentIndex]:
             tempMessage.write("#### Querying data.....")
             for i in os.listdir():
-                if os.path.splitext(i)[1] in [".tif", ".csv", ".xml", ".png", ".parquet"]:
+                if os.path.splitext(i)[1] in [".tif", ".html", ".xml", ".png", ".parquet"]:
                     os.remove(i)
 
             preFireL8, postFireL8, combined, fireGeometry = prepImages(geometry=fireData["geometry"],
                                                                        startDate=fireData["Start"].values[0],
                                                                        endDate=fireData["End"].values[0])
-            downloadRaster([30, 60, 90, 120, 150, 180], combined, fireGeometry)
+            downloadRaster([30, 60, 90, 120, 150], combined, fireGeometry)
         else:
             preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
 

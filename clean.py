@@ -2,6 +2,7 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 from datetime import date
+from funcs import bbox
 
 def sizeCode(x):
     if 1000 <= x < 5000:
@@ -77,5 +78,6 @@ subFires = subFires[["OBJECTID", "FIRE_NAME", "County", "YEAR_", "Contained Mont
 
 subFires.columns = ["ID", "Fire", "County", "Year", "Contained Month", "Start", "End", "Acres", "Size Class", "geometry"]
 
+subFires["geometry"] = subFires["geometry"].apply(lambda x: bbox(x.bounds))
 
 subFires.reset_index(drop=True).to_file("data/norCalFires.geojson", driver="GeoJSON")

@@ -36,7 +36,7 @@ def loadData():
     fires = gpd.read_file("data/norCalFires.geojson")
     fires["Start"] = fires["Start"].apply(lambda x: date.fromisoformat(x))
     fires["End"] = fires["End"].apply(lambda x: date.fromisoformat(x))
-    fires["geometry"] = fires["geometry"].apply(lambda x: bbox(x.bounds))
+    # fires["geometry"] = fires["geometry"].apply(lambda x: bbox(x.bounds))
     return fires
 
 
@@ -77,31 +77,32 @@ def loadDrawMap():
 
     drawMap.set_center(-121.15, 40.25, 6.5)
 
-    drawMap.add_shapefile(in_shp="data/CA_Counties/CA_Counties_TIGER2016.shp",
-                          layer_name="CA Counties (no tooltips)",
-                          smooth_factor=2,
-                          highlight_function=lambda x: {"weight": 4,
-                                                        "color": "#FF5699"},
-                          style_function=lambda feature: {"fillColor": feature["properties"]["NAME"],
-                                                          "color" : "#FFB3D1",
-                                                          "weight" : 1,
-                                                          "fillOpacity" : 0})
+    # drawMap.add_shapefile(in_shp="data/CA_Counties/CA_Counties_TIGER2016.shp",
+    #                       layer_name="CA Counties (no tooltips)",
+    #                       smooth_factor=2,
+    #                       highlight_function=lambda x: {"weight": 4,
+    #                                                     "color": "#FF5699"},
+    #                       style_function=lambda feature: {"fillColor": feature["properties"]["NAME"],
+    #                                                       "color" : "#FFB3D1",
+    #                                                       "weight" : 1,
+    #                                                       "fillOpacity" : 0})
+    #
+    # drawMap.add_shapefile(in_shp="data/CA_Counties/CA_Counties_TIGER2016.shp",
+    #                       layer_name="CA Counties",
+    #                       smooth_factor=2,
+    #                       highlight_function=lambda x: {"weight": 4,
+    #                                                     "color": "#FF5699"},
+    #                       tooltip=folium.features.GeoJsonTooltip(fields=["NAME"],
+    #                                                              aliases=["County:"],
+    #                                                              labels=True,
+    #                                                              sticky=True,
+    #                                                              toLocaleString=True),
+    #                       style_function=lambda feature: {"fillColor": feature["properties"]["NAME"],
+    #                                                       "color" : "#FFB3D1",
+    #                                                       "weight" : 1,
+    #                                                       "fillOpacity" : 0})
 
-    drawMap.add_shapefile(in_shp="data/CA_Counties/CA_Counties_TIGER2016.shp",
-                          layer_name="CA Counties",
-                          smooth_factor=2,
-                          highlight_function=lambda x: {"weight": 4,
-                                                        "color": "#FF5699"},
-                          tooltip=folium.features.GeoJsonTooltip(fields=["NAME"],
-                                                                 aliases=["County:"],
-                                                                 labels=True,
-                                                                 sticky=True,
-                                                                 toLocaleString=True),
-                          style_function=lambda feature: {"fillColor": feature["properties"]["NAME"],
-                                                          "color" : "#FFB3D1",
-                                                          "weight" : 1,
-                                                          "fillOpacity" : 0})
-    return drawMap
+    return drawMap.to_streamlit(height=500, width=500)
 
 
 def updateIdState(fireID):

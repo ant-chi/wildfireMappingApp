@@ -269,7 +269,7 @@ if mapFireSubmit:
             if sum(widgetStates[currentState-1] == widgetStates[currentState]) != 3:
                 tempMessage.write("#### Querying data.....")
                 for i in os.listdir():
-                    if os.path.splitext(i)[1] in [".tif", ".csv", ".xml", ".png", ".parquet"]:
+                    if os.path.splitext(i)[1] in [".tif", ".html", ".xml", ".png", ".parquet"]:
                         os.remove(i)
 
                 preFireL8, postFireL8, combined, fireGeometry = prepImages(geometry=gdf,

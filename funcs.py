@@ -289,9 +289,14 @@ def prepImages(geometry, startDate, endDate):
         startDate = startDate.isoformat()
     if type(endDate) is date:
         endDate = endDate.isoformat()
+    if geometry.shape[0] > 1:
+        st.warning("##### Uploaded file has more than one geometry object. Only the first geometry \
+        will be mapped.")
 
     # Convert geometry + dates to GEE objects
     geometry_EE = ee.Geometry(geemap.gdf_to_ee(geometry).first().geometry())
+    # st.write("## {} sqkm".format(geometry_EE.area().divide(1000 * 1000).getInfo()))
+
     startDate, endDate = ee.Date(startDate), ee.Date(endDate)
 
     preFireImage = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2"

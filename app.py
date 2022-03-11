@@ -106,7 +106,9 @@ if manual:
         with st.form(" "):
             modelKey = st.selectbox(label="Select Supervised Classifier",
                                        options=list(models.keys()),
-                                       on_change=None)
+                                       on_change=None,
+                                       help="Models are trained on fires in Northern California so \
+                                       performance is likely to be worse on fires outside this region.")
 
             geoFile = st.file_uploader(label="Upload a geometry file",
                                        type=["geojson", "kml", "zip"],
@@ -200,7 +202,9 @@ else:
 
         fireID = col_7.selectbox(label="Select Fire to Map",
                                  options=list(selectBoxOptions.keys()),
-                                 format_func=lambda x: selectBoxOptions[x])
+                                 format_func=lambda x: selectBoxOptions[x],
+                                 help="Models work best on larger fires (>5000 acres) that occur during \
+                                 non-winter months in forested or mixed land cover environments.")
 
         modelKey = col_8.selectbox(label="Select Supervised Classifier",
                                    options=list(models.keys()),

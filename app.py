@@ -52,11 +52,11 @@ st.markdown(
     """
     <style>
     [data-testid="stSidebar"][aria-expanded="true"] > div:first-child {
-        width: 400px;
+        width: 450px;
     }
     [data-testid="stSidebar"][aria-expanded="false"] > div:first-child {
-        width: 400px;
-        margin-left: -400px;
+        width: 450px;
+        margin-left: -450px;
     }
     </style>
     """,
@@ -67,8 +67,8 @@ with st.sidebar:
     manual = st.checkbox(label="Manual Fire Mapping",
                          value=False)
 
-    st.write("# How does this app work?")
-    st.video("https://www.youtube.com/watch?v=5qap5aO4i9A")
+    st.write("# Watch this video to see how this app works! :eyes::point_down:")
+    st.video("https://www.youtube.com/watch?v=NXZ4kPdbnyo")
 
     st.write("# :star2: Project Links :star2:")
     st.write("## [Visit our site for more details on this project!](https://cashcountinchi.github.io/b12_capstone/)",
@@ -80,6 +80,7 @@ with st.sidebar:
     st.write("# :mailbox: Contact Information :mailbox:")
     sidebarContactInfo()
 
+# manual mapping page
 if manual:
     st.write("### Manual Fire Mapping")
     col_1, col_2 = st.columns([1, 0.6])
@@ -100,7 +101,7 @@ if manual:
     with col_1:
         loadDrawMap()
 
-
+    # input widgets for manual mapping form
     with col_2:
         with st.form(" "):
             modelKey = st.selectbox(label="Select Supervised Classifier",
@@ -129,6 +130,7 @@ if manual:
 
             mapFireSubmit = st.form_submit_button("Map Fire")
 
+# non-manual page (default)
 else:
     if "widgetState" in st.session_state:
         del st.session_state["widgetState"]
@@ -140,7 +142,7 @@ else:
     if "currentIndex" not in st.session_state:
         st.session_state["currentIndex"] = 0     # tracks current fire ID's position in session state
 
-
+    # input widgets for filtering fires
     with st.container():
         st.write("### Filter Fires")
         col_3, emptyCol_1, col_4 = st.columns([5, 1, 5])
@@ -180,6 +182,7 @@ else:
                                          \n I: 50000-99999 acres\
                                          \n J+: 100000+ acres")
 
+    # Expander to view fire  data
     dfSubset = subsetFires(df, startYear, endYear, endMonths, sizeClasses, counties)
     st.write("#### {} fires in query".format(dfSubset.shape[0]))
 
@@ -190,6 +193,7 @@ else:
 
         st.write(temp)
 
+    # fire+model select form
     with st.form("Map Fire"):
         col_7, emptyCol_3, col_8 = st.columns([5, 1, 5])
         selectBoxOptions = formatFireSelectBox(dfSubset)
@@ -203,6 +207,7 @@ else:
                                    on_change=None)
 
         mapFireSubmit = st.form_submit_button("Map Fire")
+
 
 ##############################
 # Shared code
@@ -223,6 +228,7 @@ if mapFireSubmit:
         # Tracks if fireID has changed. If not, data will be accessed from previous session state
         idLst, currentIndex = updateIdState(fireID)
 
+        # removes files and requeries data if session state changes
         if idLst[currentIndex-1] != idLst[currentIndex]:
             tempMessage.write("#### Querying data.....")
             for i in os.listdir():
@@ -237,7 +243,7 @@ if mapFireSubmit:
             preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
 
     if manual:
-        # checks validity of input widgets
+        # checks validity of input widgets for manual mapping
         if geoFile is None:
             st.error("### Must upload a geometry file")
             st.stop()
@@ -281,9 +287,11 @@ if mapFireSubmit:
                 preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
 
 
+    # results once form is submit
     with st.container():
         tempMessage.write("#### Running model and rendering map.....")
 
+        # reads data and applies model
         df = pd.read_parquet("raster.parquet")
         modelData = prepData(df[['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7',
                                  'NDVI','elevation', 'percent_tree_cover', 'landCover']])
@@ -298,7 +306,7 @@ if mapFireSubmit:
         burnSeverityImage(labels, st.session_state["rasterDims"], "thresholdBS.png")
         burnSeverityImage(predictions, st.session_state["rasterDims"], "predictedBS.png")
 
-        # initialize geemap.foliumMap adds legend + image layers
+        # initialize geemap.foliumMap adds legend + ee.Image layers
         m = fmap.Map(add_google_map=False, plugin_LatLngPopup=False)
         add_legend(map=m,
                    legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
@@ -331,7 +339,7 @@ if mapFireSubmit:
         m.setCenter(lon, lat, zoom=10)
         m.add_layer_control()
 
-        # chart_1, chart_2 = altChart(df)
+        # model metrics expander content
         lcChart = altChart(df)
         cm, metrics = modelMetrics(labels, predictions)
         metrics = metrics.style.format(subset=["Precision (%)", "Recall (%)", "F1 (%)"],

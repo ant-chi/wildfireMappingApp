@@ -46,6 +46,7 @@ def loadModels():
     """
     models = dict()
 
+    # unpickle models and store in dictionary
     models["Logistic Regression"] = pickle.load(open("models/logistic_regression.sav", 'rb'))
     models["Multi-Layer Perceptron"] = pickle.load(open("models/mlp.sav", 'rb'))
     models["Random Forest"] = joblib.load(open("models/rf.pkl", 'rb'))
@@ -62,10 +63,9 @@ def loadModels():
     return models
 
 
-# @st.cache(allow_output_mutation=True, suppress_st_warning=True)
 def loadDrawMap():
     """
-    Creates a folium map with overlay of California counties and caches with streamlit
+    Creates a folium map with controls to draw and export polygons
     """
     drawMap = fmap.Map(add_google_map=False,
                        basemap="HYBRID",
@@ -106,7 +106,11 @@ def loadDrawMap():
 
 def updateIdState(fireID):
     """
-    Update app
+    Helper function used to prevents data from being unnecessarily requeried by tracking changes in
+    currently selected fire. Returns corresponding session states.
+
+    Args:
+        fireID: primary key (fireID) of the currently selected fire
     """
     st.session_state['idLst'].append(fireID)
     st.session_state['currentIndex'] += 1
@@ -116,6 +120,11 @@ def updateIdState(fireID):
 
 def updateWidgetState(widgets):
     """
+    Helper function used to manage session states of input widgets for manual mapping page that
+    prevents data from being unnecessarily requeried. Returns corresponding session states.
+
+    Args:
+        widgets: list of current values from fileUpload + fire date widgets
     """
     st.session_state["widgetState"].append(np.array(widgets))
     st.session_state["currentState"] += 1
@@ -123,15 +132,56 @@ def updateWidgetState(widgets):
     return st.session_state["widgetState"], st.session_state["currentState"]
 
 
+def sidebarContactInfo():
+    """
+    Helper functions that add sidebar contact info
+    """
+    st.write(
+    """
+    <ul>
+        <li style="font-size:15px";>
+            <b>Anthony Chi (Author)</b>
+            &nbsp;&nbsp;
+            <a href='mailto:anchi@ucsd.edu' style='color: transparent;'>
+                <img src='https://cdn.iconscout.com/icon/free/png-256/email-2026367-1713640.png' alt='email icon' align='middle' style='width:20;height:20px;'>
+            </a>
+            &nbsp;
+            <a href='https://www.linkedin.com/in/anthony-chi-611297234/' style='color: transparent;'>
+                <img src='https://cdn-icons-png.flaticon.com/512/174/174857.png' alt='linkedin icon' align='middle' style='width:17;height:15px;'>
+            </a>
+        </li>
+        <li style="font-size:15px";>
+            Alice Lu
+            &nbsp;&nbsp;
+            <a href='mailto:a2lu@ucsd.edu' style='color: transparent;'>
+                <img src='https://cdn.iconscout.com/icon/free/png-256/email-2026367-1713640.png' alt='email icon' align='middle' style='width:20;height:20px;'>
+            </a>
+        </li>
+        <li style="font-size:15px";>
+            Oscar Jimenez
+            &nbsp;&nbsp;
+            <a href='mailto:o6jimene@ucsd.edu' style='color: transparent;'>
+                <img src='https://cdn.iconscout.com/icon/free/png-256/email-2026367-1713640.png' alt='email icon' align='middle' style='width:20;height:20px;'>
+            </a>
+        </li>
+        <li style="font-size:15px";>
+            Jaskaranpal Singh
+            &nbsp;&nbsp;
+            <a href='mailto:jas137@ucsd.edu' style='color: transparent;'>
+                <img src='https://cdn.iconscout.com/icon/free/png-256/email-2026367-1713640.png' alt='email icon' align='middle' style='width:20;height:20px;'>
+            </a>
+        </li>
+    </ul>
+    """,
+    unsafe_allow_html=True)
+
+
 def bbox(x):
     """
-    Creates a bounding box over a geometry object
+    Creates a bounding box over a geometry object and returns as a Shapely Polygon
 
     Args:
         x: GeoPandas geometry object
-
-    Returns:
-        Shapely.Polygon that represents buffered bounding box over input geometry
     """
     minx, miny, maxx, maxy = x
     coords = ((minx, miny), (minx, maxy), (maxx, maxy), (maxx, miny))
@@ -140,7 +190,10 @@ def bbox(x):
 
 def convertDate(date):
     """
-    Converts EE.Date or unix date (in milliseconds) to Y-M-D formst
+    Converts ee.Date or unix date (in milliseconds) to isoformat (Y-M-D)
+
+    Args:
+        data: ee.Date object or string of unix time in milliseconds
     """
     if isinstance(date, ee.Date):
         date = date.getInfo()["value"]
@@ -150,7 +203,11 @@ def convertDate(date):
 
 def formatFireSelectBox(data):
     """
+    Helper function that creates a dictionary with "fireID" as pkey and "fireName (fireYear)" as value.
+    Used to select fires in streamlit form.
 
+    Args:
+        data: wildfire dataframe
     """
     return {k: "{} ({})".format(v1, v2) for k, v1, v2 in data[["ID", "Fire", "Year"]].sort_values(by="Fire").values}
 
@@ -158,6 +215,14 @@ def formatFireSelectBox(data):
 def subsetFires(data, startYear, endYear, containedMonths, sizeClass, counties):
     """
     Subsets fire data based on user defined query parameters
+
+    Args:
+        data: dataframe that is subsetted
+        startYear: year of starting fire season (inclusive)
+        endYear: year of ending fire season (exclusive)
+        containedMonths: list of months that subsetted fires are in
+        sizeClass: list of sizeClasses subsettted fires are in
+        counties: list of counties subsettted fires are in
     """
     if startYear == endYear:
         st.error("### Select valid time interval")
@@ -179,6 +244,11 @@ def subsetFires(data, startYear, endYear, containedMonths, sizeClass, counties):
 @st.cache(allow_output_mutation=True, suppress_st_warning=True)
 def uploaded_file_to_gdf(data):
     """
+    Takes a file object and converts to a geopandas dataFrame
+
+    Args:
+        data: geometry file uploaded to Streamlit
+
     Source: https://github.com/giswqs/streamlit-geospatial/blob/master/apps/timelapse.py
     """
     import tempfile
@@ -212,7 +282,7 @@ def prepImages(geometry, startDate, endDate):
         shiftedDate = ee.Date((endDate + timedelta(days=1)).isoformat())
         endDate += timedelta(days=60)
 
-
+    # formats geometry as gpd dataFrame and dates as string in isoformat
     if type(geometry) is gpd.geoseries.GeoSeries:
         geometry = gpd.GeoDataFrame(geometry=gpd.GeoSeries(geometry))
     if type(startDate) is date:
@@ -220,8 +290,8 @@ def prepImages(geometry, startDate, endDate):
     if type(endDate) is date:
         endDate = endDate.isoformat()
 
+    # Convert geometry + dates to GEE objects
     geometry_EE = ee.Geometry(geemap.gdf_to_ee(geometry).first().geometry())
-
     startDate, endDate = ee.Date(startDate), ee.Date(endDate)
 
     preFireImage = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2"
@@ -254,7 +324,7 @@ def prepImages(geometry, startDate, endDate):
                                    ":0"                         # pseudo mask
                       ).rename("burnSeverity")
 
-    # Get SRTM elevation, NLCD land coverpostFireImageNDVI, and GRIDMET weather
+    # Get SRTM elevation, NLCD land cover, postFireImageNDVI, and GRIDMET weather
     dem = ee.Image("NASA/NASADEM_HGT/001").select("elevation")
 
     nlcd = ee.ImageCollection('USGS/NLCD_RELEASES/2016_REL'
@@ -309,15 +379,17 @@ def prepImages(geometry, startDate, endDate):
 
 
 def ee_export_image(image, filename, scale, region, crs=None):
-    """Exports an ee.Image as a GeoTIFF.
+    """
+    Exports an ee.Image as a GeoTIFF.
 
     Args:
-        image (object): The ee.Image to download.
-        filename (str): Output filename for the exported image.
-        scale (float, optional): A default scale to use for any bands that do not specify one; ignored if crs and crs_transform is specified. Defaults to None.
-        crs (str, optional): A default CRS string to use for any bands that do not explicitly specify one. Defaults to None.
-        region (object, optional): A polygon specifying a region to download; ignored if crs and crs_transform is specified. Defaults to None.
-        file_per_band (bool, optional): Whether to produce a different GeoTIFF per band. Defaults to False.
+        image: ee.Image to download.
+        filename: output filename for the exported image.
+        scale: spatial resolution (in meters) to download image in
+        region: A polygon specifying a region to download
+        crs: A default CRS string to use for any bands that do not explicitly specify one. Defaults to None.
+
+    Source: https://geemap.org/common/#geemap.common.ee_export_image
     """
 
     filename = os.path.abspath(filename)
@@ -367,8 +439,14 @@ def ee_export_image(image, filename, scale, region, crs=None):
 
 def downloadRaster(imgScale, image, geometry):
     """
-    Downloads an ee.Image as a raster at a given spatial resolutions over an ee.Geometry
+    Attempts to download an ee.Image as a raster at several spaial resolutions over an ee.Geometry.
+
+    Args:
+        imgScale: list of different spatial resolutions used to attempt data download
+        image: ee.Image object to download
+        geometry: ee.Geometry to download image over
     """
+    # stops execution if image is empty
     try:
         image.bandNames().size().getInfo()
     except Exception as e:
@@ -376,6 +454,7 @@ def downloadRaster(imgScale, image, geometry):
         st.stop()
         return
 
+    # loop to attempt download at increasing spatial resolutions
     startTime = time.time()
     numTries = len(imgScale)
     for i in range(numTries):
@@ -389,10 +468,12 @@ def downloadRaster(imgScale, image, geometry):
         except Exception:
             continue
 
+    # Raster will not download at any spatial resolution if fire exceed GEE usage limits
+    # can be adjusted by adding greater spatial resolutions to imgScale
     if "raster.tif" not in os.listdir():
         st.error("### Fire exceeds total request size. Please try again with a smaller fire.")
         st.stop()
-    else:
+    else:   # raster will be converted to tabular format (parquet) if downloads successfully
         colNames = ['SR_B1','SR_B2','SR_B3','SR_B4','SR_B5','SR_B6','SR_B7',
                     'burnSeverity','dNBR','NDVI','elevation',
                     'percent_tree_cover','landCover','landCoverViz']
@@ -419,6 +500,54 @@ def downloadRaster(imgScale, image, geometry):
         # df.to_parquet("raster.parquet")
 
 
+def prepData(data):
+    """
+    Returns scaled data for model fitting
+
+    Args:
+        data: dataframe with features to rescale
+    """
+    scaler = preprocessing.StandardScaler().fit(data.values)
+    return scaler.transform(data)
+
+
+def modelMetrics(labels, predictions):
+    """
+    Returns a confusion matrix and table with precision, recall, and f1 scores.
+
+    Args:
+        labels: array of burn severity values generated with a linear dNBR threshold
+        predictions: array of predicted burn severity values
+    """
+    cm = confusion_matrix(labels, predictions)
+    predictedTotal = np.sum(cm, axis = 0)
+    actualTotal = list(np.sum(cm, axis = 1)) + [None]
+
+    precision = np.diag(cm) / np.sum(cm, axis = 0)
+    recall = np.diag(cm) / np.sum(cm, axis = 1)
+    f1 = np.round(100*(2*(precision * recall) / (precision + recall)), 2)
+
+    precision = np.round(100*precision, 2)
+    recall = np.round(100*recall, 2)
+
+    cm = np.vstack((cm, predictedTotal))
+    cm = np.hstack((cm, np.array(actualTotal).reshape(len(actualTotal),1)))
+
+    cm = pd.DataFrame(cm)
+
+    bsMap = {1: "Vegetation Growth", 2: "Unburned", 3: "Low", 4: "Moderate", 5: "High"}
+    columns = [bsMap[i] for i in range(1, len(cm.columns[:-1])+1)]
+    index = [bsMap[i] for i in range(1, len(cm.index[:-1])+1)]
+
+    cm.columns = columns + ["Predicted Total"]
+    cm.index = index + ["Actual Total"]
+
+    metrics = pd.DataFrame({"Precision (%)": precision, "Recall (%)": recall, "F1 (%)": f1})
+    metrics.index = index
+
+    return cm.fillna(0), metrics.fillna(0)
+
+
 def burnSeverityImage(data, dim, fileName):
     """
     Produces a burn severity image from raster data using matplotlib.
@@ -426,6 +555,7 @@ def burnSeverityImage(data, dim, fileName):
     Args:
         data: raster data
         dim: height and width of output image
+        fileName: name of saved png image
     """
     cmapDict = {1:'#706C1E', 2:'#4E9D5C', 3:'#FFF70B', 4:'#FF641B', 5:'#A41FD6'}
 
@@ -439,17 +569,14 @@ def burnSeverityImage(data, dim, fileName):
 
 def add_legend(map, legend_dict=None, opacity=1.0):
     """
-    Adds a dual map legend to folium map.
-    Source: https://geemap.org/foliumap/#geemap.foliumap.Map.add_legend
+    Adds a dual map legend to folium map. Function is modified from geemap package
 
     Args:
-        title (str, optional): Title of the legend. Defaults to 'Legend'. Defaults to "Legend".
-        colors ([type], optional): A list of legend colors. Defaults to None.
-        labels ([type], optional): A list of legend labels. Defaults to None.
-        legend_dict ([type], optional): A dictionary containing legend items as keys and color as values. If provided, legend_keys and legend_colors will be ignored. Defaults to None.
-        builtin_legend ([type], optional): Name of the builtin legend to add to the map. Defaults to None.
-        opacity (float, optional): The opacity of the legend. Defaults to 1.0.
+        map: folium map to add legend to
+        legend_dict: A dictionary containing legend items as keys and color as values.
+        opacity: The opacity of the legend. Defaults to 1.0.
 
+    Source: https://geemap.org/foliumap/#geemap.foliumap.Map.add_legend
     """
     from branca.element import MacroElement, Template
 
@@ -493,121 +620,16 @@ def add_legend(map, legend_dict=None, opacity=1.0):
     return map.get_root().add_child(macro)
 
 
-def prepData(data):
-    """
-    """
-    scaler = preprocessing.StandardScaler().fit(data.values)
-    return scaler.transform(data)
-
-
-def modelMetrics(labels, predictions):
-    """
-    Returns a confusion matrix and table with precision, recall, and f1 scores.
-
-    Args:
-        labels: array of burn severity values generated with a linear dNBR threshold
-        predictions: array of predicted burn severity values
-    """
-    cm = confusion_matrix(labels, predictions)
-    predictedTotal = np.sum(cm, axis = 0)
-    actualTotal = list(np.sum(cm, axis = 1)) + [None]
-
-    precision = np.diag(cm) / np.sum(cm, axis = 0)
-    recall = np.diag(cm) / np.sum(cm, axis = 1)
-    f1 = np.round(100*(2*(precision * recall) / (precision + recall)), 2)
-
-    precision = np.round(100*precision, 2)
-    recall = np.round(100*recall, 2)
-
-    cm = np.vstack((cm, predictedTotal))
-    cm = np.hstack((cm, np.array(actualTotal).reshape(len(actualTotal),1)))
-
-    cm = pd.DataFrame(cm)
-
-    bsMap = {1: "Vegetation Growth", 2: "Unburned", 3: "Low", 4: "Moderate", 5: "High"}
-    columns = [bsMap[i] for i in range(1, len(cm.columns[:-1])+1)]
-    index = [bsMap[i] for i in range(1, len(cm.index[:-1])+1)]
-
-    cm.columns = columns + ["Predicted Total"]
-    cm.index = index + ["Actual Total"]
-
-    metrics = pd.DataFrame({"Precision (%)": precision, "Recall (%)": recall, "F1 (%)": f1})
-    metrics.index = index
-
-    return cm.fillna(0), metrics.fillna(0)
-
-
-def sidebarContactInfo():
-    st.write(
-    """
-    <ul>
-        <li style="font-size:15px";>
-            <b>Alice Lu</b>
-            &nbsp;&nbsp;
-            <a href='mailto:anchi@ucsd.edu' style='color: transparent;'>
-                <img src='https://cdn.iconscout.com/icon/free/png-256/email-2026367-1713640.png' alt='email icon' align='middle' style='width:20;height:20px;'>
-            </a>
-            &nbsp;
-            <a href='https://www.youtube.com/' style='color: transparent;'>
-                <img src='https://cdn-icons-png.flaticon.com/512/174/174857.png' alt='linkedin icon' align='middle' style='width:17;height:15px;'>
-            </a>
-        </li>
-        <li style="font-size:15px";>
-            <b>Anthony Chi (Author)</b>
-            &nbsp;&nbsp;
-            <a href='mailto:anchi@ucsd.edu' style='color: transparent;'>
-                <img src='https://cdn.iconscout.com/icon/free/png-256/email-2026367-1713640.png' alt='email icon' align='middle' style='width:20;height:20px;'>
-            </a>
-            &nbsp;
-            <a href='https://www.youtube.com/' style='color: transparent;'>
-                <img src='https://cdn-icons-png.flaticon.com/512/174/174857.png' alt='linkedin icon' align='middle' style='width:17;height:15px;'>
-            </a>
-        </li>
-        <li style="font-size:15px";>
-            <b>Oscar Jimenez</b>
-            &nbsp;&nbsp;
-            <a href='mailto:anchi@ucsd.edu' style='color: transparent;'>
-                <img src='https://cdn.iconscout.com/icon/free/png-256/email-2026367-1713640.png' alt='email icon' align='middle' style='width:20;height:20px;'>
-            </a>
-            &nbsp;
-            <a href='https://www.youtube.com/' style='color: transparent;'>
-                <img src='https://cdn-icons-png.flaticon.com/512/174/174857.png' alt='linkedin icon' align='middle' style='width:17;height:15px;'>
-            </a>
-        </li>
-        <li style="font-size:15px";>
-            <b>Jaskaranpal Singh</b>
-            &nbsp;&nbsp;
-            <a href='mailto:anchi@ucsd.edu' style='color: transparent;'>
-                <img src='https://cdn.iconscout.com/icon/free/png-256/email-2026367-1713640.png' alt='email icon' align='middle' style='width:20;height:20px;'>
-            </a>
-            &nbsp;
-            <a href='https://www.youtube.com/' style='color: transparent;'>
-                <img src='https://cdn-icons-png.flaticon.com/512/174/174857.png' alt='linkedin icon' align='middle' style='width:17;height:15px;'>
-            </a>
-        </li>
-    </ul>
-    """,
-    unsafe_allow_html=True)
-
-
 def altChart(data):
     """
+    Returns an altair barChart of land cover composition in a fire's region
 
+    Args:
+        data: dataframe pulled from GEE with land cover data
     """
-    # bsMap = {1: "Vegetation Growth", 2: "Unburned", 3: "Low", 4: "Moderate", 5: "High"}
     lcMap = {1: "Other", 2: "Developed", 3: "Forest", 4: "Shrub", 5: "Grassland", 6: "Agriculture"}
 
-    # bsPivot = data.pivot_table(index="burnSeverity",
-    #                            values="SR_B1",
-    #                            aggfunc=len
-    #              ).reset_index(
-    #              ).sort_values(by="burnSeverity"
-    #              ).rename(columns={"burnSeverity": "Burn Severity",
-    #                                "SR_B1": "Percentage"})
-    # bsPivot["Percentage"] /= bsPivot["Percentage"].sum()
-    # bsPivot["Percentage"] = (100*bsPivot["Percentage"]).round(2)
-    # bsPivot["Burn Severity"] = bsPivot["Burn Severity"].apply(lambda x: bsMap[x])
-
+    # Pivot table to count pixels by landcover type
     lcPivot = data.pivot_table(index="landCoverViz",
                                values="SR_B1",
                                aggfunc=len
@@ -615,26 +637,11 @@ def altChart(data):
                  ).sort_values(by="landCoverViz"
                  ).rename(columns={"landCoverViz": "Land Cover",
                                    "SR_B1": "Percentage"})
+
+    # Convert to percentage and remap lc value to string
     lcPivot["Percentage"] /= lcPivot["Percentage"].sum()
     lcPivot["Percentage"] = (100*lcPivot["Percentage"]).round(2)
     lcPivot["Land Cover"] = lcPivot["Land Cover"].apply(lambda x: lcMap[x])
-
-
-    # bsChart = alt.Chart(bsPivot
-    #             ).mark_bar(
-    #             ).encode(x=alt.X("Percentage:Q",
-    #                              title=" "),
-    #                      y=alt.Y("Burn Severity:O",
-    #                              title=" ",
-    #                              sort=list(bsMap.values())),
-    #                      color=alt.Color("Burn Severity",
-    #                                      legend=None,
-    #                                      scale=alt.Scale(domain=list(bsMap.values()),
-    #                                                      range=["rgb(112,108,30)", "rgb(78,157,92)",
-    #                                                             "rgb(255,247,11)", "rgb(255,100,27)",
-    #                                                             "rgb(164,31,214)"])),
-    #                      tooltip=["Burn Severity", "Percentage"]
-    #             ).properties(title="Burn Severity (%)")
 
     lcChart = alt.Chart(lcPivot
                 ).mark_bar(
@@ -652,5 +659,4 @@ def altChart(data):
                          tooltip=["Land Cover", "Percentage"]
                 ).properties(title="Land Cover (%)")
 
-    # return bsChart, lcChart
     return lcChart

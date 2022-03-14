@@ -145,10 +145,6 @@ def sidebarContactInfo():
             <a href='mailto:anchi@ucsd.edu' style='color: transparent;'>
                 <img src='https://cdn.iconscout.com/icon/free/png-256/email-2026367-1713640.png' alt='email icon' align='middle' style='width:20;height:20px;'>
             </a>
-            &nbsp;
-            <a href='https://www.linkedin.com/in/anthony-chi-611297234/' style='color: transparent;'>
-                <img src='https://cdn-icons-png.flaticon.com/512/174/174857.png' alt='linkedin icon' align='middle' style='width:17;height:15px;'>
-            </a>
         </li>
         <li style="font-size:15px";>
             Alice Lu
@@ -174,7 +170,10 @@ def sidebarContactInfo():
     </ul>
     """,
     unsafe_allow_html=True)
-
+# &nbsp;
+# <a href='https://www.linkedin.com' style='color: transparent;'>
+#     <img src='https://cdn-icons-png.flaticon.com/512/174/174857.png' alt='linkedin icon' align='middle' style='width:17;height:15px;'>
+# </a>
 
 def bbox(x):
     """

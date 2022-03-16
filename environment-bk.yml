@@ -10,5 +10,4 @@ dependencies:
       - localtileserver
       - palettable
       - streamlit-folium
-      - git+git://github.com/giswqs/leafmap
       - git+git://github.com/giswqs/geemap

@@ -9,8 +9,10 @@ import os
 import time
 import folium
 from datetime import date, timedelta
+# from funcs import *
+import sys
+sys.path.insert(0, "src")
 from funcs import *
-
 
 st.set_page_config(layout="wide", page_title=" ", page_icon=":earth_americas:")
 
@@ -18,6 +20,7 @@ st.set_page_config(layout="wide", page_title=" ", page_icon=":earth_americas:")
 geemap.ee_initialize()
 
 df = loadData()
+print(df.shape)
 models = loadModels()
 
 
@@ -47,7 +50,7 @@ monthMap = {1: "January", 2: "February", 3: "March", 4: "April", 5: "May", 6: "J
             8: "August", 9: "September", 10: "October", 11: "November", 12: "December"}
 
 
-# increase sidebar width
+# increases sidebar width
 st.markdown(
     """
     <style>
@@ -62,7 +65,7 @@ st.markdown(
     """,
     unsafe_allow_html=True)
 
-
+# collapsible sidebar with project info
 with st.sidebar:
     manual = st.checkbox(label="Manual Fire Mapping",
                          value=False)
@@ -71,9 +74,9 @@ with st.sidebar:
     st.video("https://www.youtube.com/watch?v=NXZ4kPdbnyo")
 
     st.write("# :star2: Project Links :star2:")
-    st.write("## [Visit our site for more details on this project!](https://cashcountinchi.github.io/b12_capstone/)",
+    st.write("## [Click here for more details on this project!](https://cashcountinchi.github.io/b12_capstone/)",
              "\n",
-             "## [Visit our Github!](https://github.com/cashcountinchi/capstoneApp)&nbsp;&nbsp;&nbsp;\
+             "## [Visit app on Github](https://github.com/cashcountinchi/capstoneApp)&nbsp;&nbsp;&nbsp;\
              <img src='https://cdn-icons-png.flaticon.com/512/25/25231.png' alt='Github logo' align='middle' style='width:25;height:25px;'>",
              unsafe_allow_html=True)
 
@@ -234,7 +237,7 @@ if mapFireSubmit:
 
         # removes files and requeries data if session state changes
         if idLst[currentIndex-1] != idLst[currentIndex]:
-            tempMessage.write("#### Querying data.....")
+            tempMessage.write("### Pulling data from Google Earth Engine  :earth_americas: :satellite:")
             for i in os.listdir():
                 if os.path.splitext(i)[1] in [".tif", ".html", ".xml", ".png", ".parquet"]:
                     os.remove(i)
@@ -277,7 +280,7 @@ if mapFireSubmit:
 
             # Requeries data if file upload or date widgets change between runs
             if sum(widgetStates[currentState-1] == widgetStates[currentState]) != 3:
-                tempMessage.write("#### Querying data.....")
+                tempMessage.write("### Pulling data from Google Earth Engine  :earth_americas: :satellite:")
                 for i in os.listdir():
                     if os.path.splitext(i)[1] in [".tif", ".html", ".xml", ".png", ".parquet"]:
                         os.remove(i)
@@ -291,7 +294,7 @@ if mapFireSubmit:
                 preFireL8, postFireL8, combined, fireGeometry = st.session_state["eeObjects"]
 
 
-    # results once form is submit
+    # results once form is submitted
     with st.container():
         tempMessage.write("#### Running model and rendering map.....")
 

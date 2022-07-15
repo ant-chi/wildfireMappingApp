@@ -42,7 +42,7 @@ def loadData():
 @st.cache(allow_output_mutation=True, suppress_st_warning=True)
 def loadModels():
     """
-    Stores trained models in a dictionary and caches with streamlit
+    Stores trained models in a dictionary and adds to Streamlit cache
     """
     models = dict()
 
@@ -106,7 +106,7 @@ def loadDrawMap():
 
 def updateIdState(fireID):
     """
-    Helper function used to prevents data from being unnecessarily requeried by tracking changes in
+    Helper function used to prevent data from being unnecessarily requeried by tracking changes in
     currently selected fire. Returns corresponding session states.
 
     Args:
@@ -134,36 +134,15 @@ def updateWidgetState(widgets):
 
 def sidebarContactInfo():
     """
-    Helper functions that add sidebar contact info
+    Helper function that add sidebar contact info
     """
     st.write(
     """
     <ul>
         <li style="font-size:15px";>
-            <b>Anthony Chi (Author)</b>
+            <b>Anthony Chi</b>
             &nbsp;&nbsp;
             <a href='mailto:anchi@ucsd.edu' style='color: transparent;'>
-                <img src='https://cdn.iconscout.com/icon/free/png-256/email-2026367-1713640.png' alt='email icon' align='middle' style='width:20;height:20px;'>
-            </a>
-        </li>
-        <li style="font-size:15px";>
-            Alice Lu
-            &nbsp;&nbsp;
-            <a href='mailto:a2lu@ucsd.edu' style='color: transparent;'>
-                <img src='https://cdn.iconscout.com/icon/free/png-256/email-2026367-1713640.png' alt='email icon' align='middle' style='width:20;height:20px;'>
-            </a>
-        </li>
-        <li style="font-size:15px";>
-            Oscar Jimenez
-            &nbsp;&nbsp;
-            <a href='mailto:o6jimene@ucsd.edu' style='color: transparent;'>
-                <img src='https://cdn.iconscout.com/icon/free/png-256/email-2026367-1713640.png' alt='email icon' align='middle' style='width:20;height:20px;'>
-            </a>
-        </li>
-        <li style="font-size:15px";>
-            Jaskaranpal Singh
-            &nbsp;&nbsp;
-            <a href='mailto:jas137@ucsd.edu' style='color: transparent;'>
                 <img src='https://cdn.iconscout.com/icon/free/png-256/email-2026367-1713640.png' alt='email icon' align='middle' style='width:20;height:20px;'>
             </a>
         </li>
@@ -177,7 +156,7 @@ def sidebarContactInfo():
 
 def bbox(x):
     """
-    Creates a bounding box over a geometry object and returns as a Shapely Polygon
+    Creates a bounding box over a geometry object and returns a Shapely Polygon
 
     Args:
         x: GeoPandas geometry object
@@ -189,10 +168,10 @@ def bbox(x):
 
 def convertDate(date):
     """
-    Converts ee.Date or unix date (in milliseconds) to isoformat (Y-M-D)
+    Converts ee.Date object or Unix date (in milliseconds) to isoformat (Y-M-D)
 
     Args:
-        data: ee.Date object or string of unix time in milliseconds
+        data: ee.Date object or string of Unix time in milliseconds
     """
     if isinstance(date, ee.Date):
         date = date.getInfo()["value"]
@@ -203,7 +182,7 @@ def convertDate(date):
 def formatFireSelectBox(data):
     """
     Helper function that creates a dictionary with "fireID" as pkey and "fireName (fireYear)" as value.
-    Used to select fires in streamlit form.
+    Used to select fires in Streamlit Form.
 
     Args:
         data: wildfire dataframe
@@ -271,6 +250,15 @@ def uploaded_file_to_gdf(data):
 
 
 def prepImages(geometry, startDate, endDate):
+    """
+    Creates a composite image with bands from Landsat 8, NLCD, thresholded
+    burn severity, and GRIDMET over the specified timespan.
+
+    Args:
+        geometry: GeoPandas geometry object
+        startDate: date to begin selecting images from Landsat 8
+        endDate: date to stop selecting images from Landsat 8
+    """
     if endDate-startDate >= timedelta(days=90):
         shiftedDate = ee.Date((endDate - timedelta(days=60)).isoformat())
         endDate += timedelta(days=20)
@@ -384,7 +372,7 @@ def prepImages(geometry, startDate, endDate):
 
 def ee_export_image(image, filename, scale, region, crs=None):
     """
-    Exports an ee.Image as a GeoTIFF.
+    Exports an ee.Image as a GeoTIFF (raster format).
 
     Args:
         image: ee.Image to download.
@@ -443,7 +431,9 @@ def ee_export_image(image, filename, scale, region, crs=None):
 
 def downloadRaster(imgScale, image, geometry):
     """
-    Attempts to download an ee.Image as a raster at several spaial resolutions over an ee.Geometry.
+    Downloads an ee.Image to the client as a raster. If operation is not possible due to
+    exceeding Earth Engine memory limits, image is reprojected to a higher spatial resolution
+    and process will repeat.
 
     Args:
         imgScale: list of different spatial resolutions used to attempt data download
@@ -506,7 +496,7 @@ def downloadRaster(imgScale, image, geometry):
 
 def prepData(data):
     """
-    Returns scaled data for model fitting
+    Standardizes raster data for model fitting.
 
     Args:
         data: dataframe with features to rescale
@@ -584,7 +574,7 @@ def add_legend(map, legend_dict=None, opacity=1.0):
     """
     from branca.element import MacroElement, Template
 
-    legend_template = os.path.join("legendTemplate.txt")
+    legend_template = os.path.join("src/legendTemplate.txt")
 
     if legend_dict is not None:
         if not isinstance(legend_dict, dict):
@@ -626,7 +616,7 @@ def add_legend(map, legend_dict=None, opacity=1.0):
 
 def altChart(data):
     """
-    Returns an altair barChart of land cover composition in a fire's region
+    Returns an Altair barChart of land cover composition in a fire's region
 
     Args:
         data: dataframe pulled from GEE with land cover data

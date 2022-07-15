@@ -30,9 +30,9 @@ def oobDate(x):
         return None
 
 
-fires = gpd.read_file("data/California_Fire_Perimeters_(all).geojson")
+fires = gpd.read_file("../data/California_Fire_Perimeters_(all).geojson")
 
-counties = gpd.read_file("data/CA_Counties/CA_Counties_TIGER2016.shp").to_crs("EPSG:4326")
+counties = gpd.read_file("../data/CA_Counties/CA_Counties_TIGER2016.shp").to_crs("EPSG:4326")
 sfLowerBound = counties[counties["NAME"]=="San Francisco"]["geometry"].bounds["maxy"].values[0]
 norCalCounties = counties[counties.bounds.apply(lambda x: x[3]>sfLowerBound, axis=1)]
 countyGeo = {county: geometry for county, geometry in norCalCounties[["NAME", "geometry"]].values}
@@ -80,4 +80,4 @@ subFires.columns = ["ID", "Fire", "County", "Year", "Contained Month", "Start", 
 
 subFires["geometry"] = subFires["geometry"].apply(lambda x: bbox(x.bounds))
 
-subFires.reset_index(drop=True).to_file("data/norCalFires.geojson", driver="GeoJSON")
+subFires.reset_index(drop=True).to_file("../data/norCalFires.geojson", driver="GeoJSON")

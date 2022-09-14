@@ -74,9 +74,9 @@ with st.sidebar:
     st.video("https://www.youtube.com/watch?v=NXZ4kPdbnyo")
 
     st.write("# :star2: Project Links :star2:")
-    st.write("## [Click here for more details on this project!](https://cashcountinchi.github.io/b12_capstone/)",
+    st.write("## [Click here for more details on this project!](https://ant-chi.github.io/b12_capstone/)",
              "\n",
-             "## [Visit app on Github](https://github.com/cashcountinchi/capstoneApp)&nbsp;&nbsp;&nbsp;\
+             "## [Visit app on Github](https://github.com/ant-chi/wildfireMappingApp)&nbsp;&nbsp;&nbsp;\
              <img src='https://cdn-icons-png.flaticon.com/512/25/25231.png' alt='Github logo' align='middle' style='width:25;height:25px;'>",
              unsafe_allow_html=True)
 
@@ -394,7 +394,7 @@ text-align: center;
 }
 </style>
 <div class="footer">
-<p>Developed in <img src="https://avatars3.githubusercontent.com/u/45109972?s=400&v=4" width="25" height="25"> by <a href="https://github.com/cashcountinchi/capstoneApp" target="_blank">Anthony Chi</a></p>
+<p>Developed in <img src="https://avatars3.githubusercontent.com/u/45109972?s=400&v=4" width="25" height="25"> by <a href="https://github.com/ant-chi/wildfireMappingApp" target="_blank">Anthony Chi</a></p>
 </div>
 """
 st.markdown(footer, unsafe_allow_html=True)

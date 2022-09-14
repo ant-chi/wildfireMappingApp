@@ -2,7 +2,7 @@
 geopandas
 palettable
 localtileserver
-streamlit
+streamlit==1.5.1
 streamlit-folium
 scikit-learn
 altair==4.1.0

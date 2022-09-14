@@ -1,6 +1,6 @@
 ## Supervised Classification Approach to Wildfire Mapping in Northern California
 
-This **[Streamlit app](https://share.streamlit.io/cashcountinchi/capstoneapp/main/app.py)** is developed as part of the senior data science capstone at UCSD, DSC180B. It demonstrates the use of supervised classification models for mapping wildfire burn severities. 
+This **[Streamlit app](https://ant-chi-wildfiremappingapp-app-r4o1l0.streamlitapp.com/)** is developed as part of the senior data science capstone at UCSD, DSC180B. It demonstrates the use of supervised classification models for mapping wildfire burn severities. 
 
 For details on how this app works, please watch this **[video](https://www.youtube.com/watch?v=NXZ4kPdbnyo)**.
 

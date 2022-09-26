@@ -295,7 +295,9 @@ if mapFireSubmit:
 
 
     # results once form is submitted
-    with st.container():
+    # with st.container():
+    emptyCol_4, col_9, emptyCol_5 = st.columns([1,3.75,1])
+    with col_9:
         tempMessage.write("#### Running model and rendering map.....")
 
         # reads data and applies model
@@ -314,7 +316,9 @@ if mapFireSubmit:
         burnSeverityImage(predictions, st.session_state["rasterDims"], "predictedBS.png")
 
         # initialize geemap.foliumMap adds legend + ee.Image layers
-        m = fmap.Map(add_google_map=False, plugin_LatLngPopup=False)
+        m = fmap.Map(add_google_map=False,
+                     plugin_LatLngPopup=False,
+                     plugin_Draw=False)
         add_legend(map=m,
                    legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
                                         ["None"]+burn_viz["palette"]+["None"]+nlcd_viz["palette"])))
@@ -354,17 +358,17 @@ if mapFireSubmit:
 
         tempMessage.empty()
 
-        emptyCol_4, col_9, emptyCol_5 = st.columns([1,3.75,1])
-        with col_9:
+        # emptyCol_4, col_9, emptyCol_5 = st.columns([1,3.75,1])
+        # with col_9:
             # st.write("#### {} Accuracy: {}%".format(modelKey, np.round(100*np.mean(labels==predictions), 2)))
-            m.to_streamlit(height=670, width=600, scrolling=True)
+        m.to_streamlit(height=670, width=600, scrolling=True)
 
-            with st.expander("View model metrics"):
-                st.write(cm.style.set_properties(**{'text-align': 'center'}).to_html(),
-                         unsafe_allow_html=True)
-                st.write(metrics.to_html(),
-                         unsafe_allow_html=True)
-                st.altair_chart(lcChart)
+        with st.expander("View model metrics"):
+            st.write(cm.style.set_properties(**{'text-align': 'center'}).to_html(),
+                     unsafe_allow_html=True)
+            st.write(metrics.to_html(),
+                     unsafe_allow_html=True)
+            st.altair_chart(lcChart)
 
 
     st.success("#### Total Runtime: {} seconds".format(np.round((time.time()-startTime), 2)))

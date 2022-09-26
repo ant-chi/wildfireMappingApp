@@ -10,4 +10,5 @@ dependencies:
       - localtileserver
       - palettable
       - streamlit-folium
-      - git+git://github.com/giswqs/geemap
+      - geemap==0.11.1
+      # - git+git://github.com/giswqs/geemap

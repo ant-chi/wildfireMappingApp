@@ -14,7 +14,7 @@ import sys
 sys.path.insert(0, "src")
 from funcs import *
 
-st.set_page_config(layout="wide", page_title=" ", page_icon=":earth_americas:")
+st.set_page_config(layout="wide", page_title="Wildfire Mapper", page_icon=":earth_americas:")
 
 # initialize EE + cache data / models
 geemap.ee_initialize()
@@ -308,7 +308,7 @@ if mapFireSubmit:
         labels, predictions = df["burnSeverity"].values, model.predict(modelData)
 
         # scale oscar models by +1
-        if modelKey in ["log_boost", "SVM", "Boosted Trees"]:
+        if modelKey in ["Gradient Boosted Trees", "Support Vector Machines"]:
             predictions = predictions + 1
 
         # png of actual+predicted burn severity from raster data
@@ -319,6 +319,7 @@ if mapFireSubmit:
         m = fmap.Map(add_google_map=False,
                      plugin_LatLngPopup=False,
                      plugin_Draw=False)
+                     
         add_legend(map=m,
                    legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
                                         ["None"]+burn_viz["palette"]+["None"]+nlcd_viz["palette"])))

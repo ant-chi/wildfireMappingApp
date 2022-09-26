@@ -1,14 +1,13 @@
 --find-links=https://girder.github.io/large_image_wheels GDAL
-geopandas
+geopandas==0.10.2
 palettable
-localtileserver
+# localtileserver
 streamlit==1.5.1
 streamlit-folium
 scikit-learn
 altair==4.1.0
 pandas
-rasterio
-joblib
+rasterio==1.2.3
+joblib==1.0.1
 # leafmap
 geemap==0.11.1
-

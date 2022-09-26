@@ -86,7 +86,7 @@ with st.sidebar:
 # manual mapping page
 if manual:
     st.write("### Manual Fire Mapping")
-    col_1, col_2 = st.columns([1, 0.6])
+    col_1, col_2 = st.columns([1, 0.45])
 
     if "idLst" in st.session_state:
         del st.session_state["idLst"]
@@ -318,8 +318,9 @@ if mapFireSubmit:
         # initialize geemap.foliumMap adds legend + ee.Image layers
         m = fmap.Map(add_google_map=False,
                      plugin_LatLngPopup=False,
-                     plugin_Draw=False)
-                     
+                     plugin_Draw=False,
+                     search_control=False)
+
         add_legend(map=m,
                    legend_dict=dict(zip(["Burn Severity"]+["Vegetation Growth", "Unburned", "Low", "Moderate", "High"]+["Land Cover"]+["Other", "Developed", "Forest", "Shrub", "Grassland", "Agriculture"],
                                         ["None"]+burn_viz["palette"]+["None"]+nlcd_viz["palette"])))

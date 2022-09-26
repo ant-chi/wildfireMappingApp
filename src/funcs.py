@@ -52,7 +52,7 @@ def loadModels():
     models["Random Forest"] = joblib.load(open("models/rf.pkl", 'rb'))
     models["Support Vector Machines"] = joblib.load(open("models/svc.pkl", "rb"))
     models["Gradient Boosted Trees"] = joblib.load(open("models/log_boost.pkl", "rb"))
-    
+
     # models["XGBoost"] = joblib.load(open("models/tree_boost.pkl", "rb"))
     # etcURL = "https://www.dl.dropboxusercontent.com/s/jr8vwvz1tsee1f9/etc.pkl?dl=0"
     # etcRequest = requests.get(etcURL, allow_redirects=True)
@@ -70,8 +70,9 @@ def loadDrawMap():
     drawMap = fmap.Map(add_google_map=False,
                        basemap="HYBRID",
                        plugin_Draw=True,
-                       draw_export=True,
-                       locate_control=True,
+                       Draw_export=True,
+                       search_control=False,
+                       locate_control=False,
                        plugin_LatLngPopup=False)
 
     drawMap.set_center(-121.15, 40.25, 6.5)
@@ -101,7 +102,7 @@ def loadDrawMap():
     #                                                       "weight" : 1,
     #                                                       "fillOpacity" : 0})
 
-    return drawMap.to_streamlit(height=500, width=500)
+    return drawMap.to_streamlit(height=700, width=500)
 
 
 def updateIdState(fireID):
